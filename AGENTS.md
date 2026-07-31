@@ -51,13 +51,22 @@ Use:
 
 ## Verification
 
-After modifying project resources or scripts, run:
+Codex must not launch the Godot editor or a graphical game process. Graphical
+execution is a manual user verification step because the native Windows
+sandbox may not provide a compatible desktop or user profile.
 
-    godot --headless --path . --import
+After modifying scripts or resources, run:
 
-If the project has a runnable main scene, also run an appropriate smoke test.
+    powershell -ExecutionPolicy Bypass -File tools/verify.ps1
+
+This script provides project-local APPDATA, LOCALAPPDATA, TEMP, and TMP
+directories and performs:
+
+1. A headless resource import.
+2. A short headless main-scene smoke test.
 
 Report:
 - Files changed
-- Tests or checks run
-- Remaining warnings, errors, or unverified behavior
+- Verification command and exit code
+- Godot warnings or errors
+- Behavior that still requires manual graphical verification
