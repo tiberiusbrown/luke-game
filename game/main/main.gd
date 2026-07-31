@@ -1,12 +1,18 @@
-extends Control
+extends Node2D
 
-@onready var start_button: Button = $CenterContainer/Content/StartButton
-@onready var status_label: Label = $CenterContainer/Content/StatusLabel
+@onready var dungeon_level: DungeonLevel = $DungeonLevel
+@onready var player: DungeonPlayer = $DungeonLevel/Player
+@onready var position_label: Label = $Hud/PositionLabel
 
 
 func _ready() -> void:
-	start_button.grab_focus()
+	position_label.text = _get_position_text()
 
 
-func _on_start_button_pressed() -> void:
-	status_label.text = "Ready to start!"
+func _process(_delta: float) -> void:
+	position_label.text = _get_position_text()
+
+
+func _get_position_text() -> String:
+	var cell: Vector2i = dungeon_level.world_to_cell(player.position)
+	return "POSITION  %02d, %02d" % [cell.x, cell.y]

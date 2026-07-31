@@ -1,56 +1,57 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://game/main/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://game/dungeon/dungeon_level.gd" id="2_dungeon"]
+[ext_resource type="Script" path="res://game/player/player.gd" id="3_player"]
 
-[node name="Main" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Main" type="Node2D"]
 script = ExtResource("1_main")
 
 [node name="Background" type="ColorRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.055, 0.071, 0.118, 1)
+offset_right = 960.0
+offset_bottom = 640.0
 mouse_filter = 2
+color = Color(0.035, 0.043, 0.071, 1)
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="DungeonLevel" type="Node2D" parent="."]
+position = Vector2(80, 80)
+script = ExtResource("2_dungeon")
 
-[node name="Content" type="VBoxContainer" parent="CenterContainer"]
-custom_minimum_size = Vector2(260, 0)
-layout_mode = 2
-theme_override_constants/separation = 16
+[node name="Player" type="CharacterBody2D" parent="DungeonLevel"]
+script = ExtResource("3_player")
 
-[node name="ProjectName" type="Label" parent="CenterContainer/Content"]
-layout_mode = 2
+[node name="Hud" type="CanvasLayer" parent="."]
+
+[node name="TopBar" type="ColorRect" parent="Hud"]
+offset_right = 960.0
+offset_bottom = 64.0
+mouse_filter = 2
+color = Color(0.055, 0.071, 0.118, 0.98)
+
+[node name="TitleLabel" type="Label" parent="Hud"]
+offset_left = 24.0
+offset_top = 12.0
+offset_right = 340.0
+offset_bottom = 38.0
 theme_override_colors/font_color = Color(0.91, 0.94, 1, 1)
-theme_override_font_sizes/font_size = 32
-text = "Luke Game"
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+text = "THE UNDERDEEP"
 
-[node name="StartButton" type="Button" parent="CenterContainer/Content" unique_name_in_owner=true]
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-focus_neighbor_top = NodePath(".")
-text = "Start Game"
+[node name="HintLabel" type="Label" parent="Hud"]
+offset_left = 26.0
+offset_top = 38.0
+offset_right = 500.0
+offset_bottom = 58.0
+theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
+theme_override_font_sizes/font_size = 12
+text = "ARROW KEYS  •  EXPLORE THE DUNGEON"
 
-[node name="StatusLabel" type="Label" parent="CenterContainer/Content" unique_name_in_owner=true]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.62, 0.68, 0.79, 1)
-text = ""
-horizontal_alignment = 1
-
-[connection signal="pressed" from="CenterContainer/Content/StartButton" to="." method="_on_start_button_pressed"]
+[node name="PositionLabel" type="Label" parent="Hud"]
+offset_left = 760.0
+offset_top = 25.0
+offset_right = 936.0
+offset_bottom = 48.0
+theme_override_colors/font_color = Color(0.42, 0.78, 0.67, 1)
+theme_override_font_sizes/font_size = 13
+text = "POSITION  00, 00"
+horizontal_alignment = 2
