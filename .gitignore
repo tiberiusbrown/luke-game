@@ -1,0 +1,14 @@
+# Godot-generated cache
+.godot/
+*.translation
+
+# Local build output
+build/
+
+# Operating-system clutter
+.DS_Store
+Thumbs.db
+
+# Editor-specific local state
+.vscode/
+.idea/
