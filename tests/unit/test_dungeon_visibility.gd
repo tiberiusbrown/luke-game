@@ -19,9 +19,11 @@ func before_each() -> void:
 	dungeon_level.refresh_visibility()
 
 
-func test_player_light_uses_the_five_cell_radius_and_remembers_lit_cells() -> void:
-	var edge_cell: Vector2i = Vector2i(10, 5)
-	var outside_cell: Vector2i = Vector2i(11, 5)
+func test_player_light_uses_a_five_cell_diameter_and_remembers_lit_cells() -> void:
+	assert_eq(dungeon_level.LIGHT_DIAMETER, 5)
+	assert_eq(dungeon_level.LIGHT_RADIUS, 2)
+	var edge_cell: Vector2i = Vector2i(7, 5)
+	var outside_cell: Vector2i = Vector2i(8, 5)
 
 	assert_true(dungeon_level.is_cell_visible(edge_cell))
 	assert_true(dungeon_level.is_cell_known(edge_cell))
@@ -47,7 +49,7 @@ func test_wall_is_lit_but_blocks_the_light_path() -> void:
 
 
 func test_discovered_pickups_remain_visible_but_dimmed_outside_current_light() -> void:
-	var pickup: ItemPickup = dungeon_level.spawn_pickup("Ancient Coin", Vector2i(10, 5))
+	var pickup: ItemPickup = dungeon_level.spawn_pickup("Ancient Coin", Vector2i(7, 5))
 
 	assert_true(pickup.is_known)
 	assert_true(pickup.is_lit)
@@ -62,7 +64,7 @@ func test_discovered_pickups_remain_visible_but_dimmed_outside_current_light() -
 
 
 func test_entities_are_hidden_when_their_cells_are_not_lit() -> void:
-	var enemy: DungeonEnemy = dungeon_level.spawn_enemy(ZombieEnemy.new(), Vector2i(10, 5))
+	var enemy: DungeonEnemy = dungeon_level.spawn_enemy(ZombieEnemy.new(), Vector2i(7, 5))
 
 	assert_true(enemy.visible)
 
@@ -73,14 +75,14 @@ func test_entities_are_hidden_when_their_cells_are_not_lit() -> void:
 
 
 func test_moving_the_player_refreshes_the_light_after_the_move_finishes() -> void:
-	assert_true(dungeon_level.is_cell_visible(Vector2i(10, 5)))
+	assert_true(dungeon_level.is_cell_visible(Vector2i(7, 5)))
 
 	assert_true(player.try_move(Vector2i(1, 0)))
 	await get_tree().create_timer(DungeonEntity.MOVE_DURATION + 0.05).timeout
 
 	assert_eq(player.current_cell, Vector2i(6, 5))
-	assert_true(dungeon_level.is_cell_visible(Vector2i(11, 5)))
-	assert_true(dungeon_level.is_cell_known(Vector2i(10, 5)))
+	assert_true(dungeon_level.is_cell_visible(Vector2i(8, 5)))
+	assert_true(dungeon_level.is_cell_known(Vector2i(7, 5)))
 
 
 func _set_up_test_map() -> void:

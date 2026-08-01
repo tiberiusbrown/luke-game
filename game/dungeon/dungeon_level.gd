@@ -8,7 +8,8 @@ signal combat_event(message: String)
 const GRID_WIDTH: int = 25
 const GRID_HEIGHT: int = 17
 const TILE_SIZE: int = 32
-const LIGHT_RADIUS: int = 5
+const LIGHT_DIAMETER: int = 5
+const LIGHT_RADIUS: int = 2
 const WALL: int = 0
 const FLOOR: int = 1
 const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shard"]
