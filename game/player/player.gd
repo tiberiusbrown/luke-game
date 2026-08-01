@@ -49,6 +49,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif dungeon_level.interact_with_hireling(active_player.current_cell, inventory):
 			get_viewport().set_input_as_handled()
+		elif dungeon_level.interact_with_prison(active_player.current_cell, inventory):
+			get_viewport().set_input_as_handled()
 		return
 
 	var direction: Vector2i = _get_direction_for_key(key_event)

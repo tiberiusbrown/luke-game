@@ -32,6 +32,7 @@ func _ready() -> void:
 	dungeon_level.item_collected.connect(_on_item_collected)
 	dungeon_level.vendor_interaction_requested.connect(_on_vendor_interaction_requested)
 	dungeon_level.companion_event.connect(_on_companion_event)
+	dungeon_level.prison_event.connect(_on_prison_event)
 	dungeon_level.player_control_changed.connect(_on_player_control_changed)
 	dungeon_level.game_over.connect(_on_game_over)
 	player.inventory.weapon_wielded.connect(_on_weapon_wielded)
@@ -221,6 +222,10 @@ func _on_vendor_panel_close_requested() -> void:
 
 
 func _on_companion_event(message: String) -> void:
+	status_log.add_message(message)
+
+
+func _on_prison_event(message: String) -> void:
 	status_log.add_message(message)
 
 

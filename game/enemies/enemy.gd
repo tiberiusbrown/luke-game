@@ -6,6 +6,7 @@ const MAX_HEARTS: int = 10
 var enemy_type: String = "Enemy"
 var attack_damage: int = 1
 var hit_chance: float = 1.0
+var is_boss: bool = false
 
 
 func _init() -> void:

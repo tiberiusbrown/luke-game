@@ -54,6 +54,10 @@ func _draw() -> void:
 	elif item_name == "Ancient Coin":
 		draw_circle(Vector2.ZERO, 3.0, item_color.lightened(0.35))
 		draw_line(Vector2(-2, 0), Vector2(2, 0), item_color.darkened(0.2), 1.5)
+	elif item_name == DungeonLevel.BOSS_PRISON_KEY:
+		draw_circle(Vector2(-2, -2), 2.5, item_color.lightened(0.35))
+		draw_line(Vector2(0, 0), Vector2(6, 6), item_color.lightened(0.25), 2.0)
+		draw_line(Vector2(3, 4), Vector2(6, 2), item_color.darkened(0.2), 1.5)
 	else:
 		draw_line(Vector2(-3, -3), Vector2(3, 3), item_color.lightened(0.35), 2.0)
 		draw_line(Vector2(3, -3), Vector2(-3, 3), item_color.lightened(0.35), 2.0)
@@ -69,6 +73,8 @@ func _get_item_color() -> Color:
 			return Color("#d6a85f")
 		"Crystal Shard":
 			return Color("#68a7d8")
+		DungeonLevel.BOSS_PRISON_KEY:
+			return Color("#e85f70")
 		_:
 			return Color("#a68bd4")
 

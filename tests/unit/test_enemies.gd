@@ -115,6 +115,29 @@ func test_new_monsters_have_distinct_combat_stats() -> void:
 	assert_eq(lich.speed, 1.0)
 
 
+func test_cyclopes_is_a_boss_with_thirty_hearts_and_heavy_attacks() -> void:
+	var cyclopes: CyclopesEnemy = CyclopesEnemy.new()
+	add_child_autofree(cyclopes)
+
+	assert_true(cyclopes.is_boss)
+	assert_eq(cyclopes.get_display_name(), "Cyclopes")
+	assert_eq(cyclopes.health.max_hearts, 30)
+	assert_eq(cyclopes.attack_damage, 4)
+	assert_eq(cyclopes.hit_chance, 0.90)
+	assert_gt(cyclopes.speed, player.speed)
+
+
+func test_cyclopes_deals_four_hearts_when_its_attack_hits() -> void:
+	var cyclopes: CyclopesEnemy = CyclopesEnemy.new()
+	cyclopes.hit_chance = 1.0
+	dungeon_level.spawn_enemy(cyclopes, Vector2i(3, 2))
+
+	assert_true(cyclopes.try_move(Vector2i(-1, 0)))
+	await get_tree().create_timer(HitEffect.DURATION + 0.1).timeout
+
+	assert_eq(player.health.current_hearts, 6)
+
+
 func test_enemies_wait_for_a_player_move_before_taking_a_turn() -> void:
 	var ghost: GhostEnemy = GhostEnemy.new()
 	ghost.hit_chance = 1.0

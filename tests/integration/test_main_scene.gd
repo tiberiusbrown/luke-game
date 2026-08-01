@@ -25,6 +25,62 @@ func test_main_scene_contains_generated_dungeon() -> void:
 	assert_gt(dungeon_level.pickups.size(), 0)
 
 
+func test_main_scene_contains_a_locked_boss_prison_and_its_key() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var prison_room: Rect2i = dungeon_level.get_prison_room()
+	var key_count: int = 0
+	for pickup: ItemPickup in dungeon_level.pickups:
+		if pickup.item_name == DungeonLevel.BOSS_PRISON_KEY:
+			key_count += 1
+
+	assert_ne(prison_room.size, Vector2i.ZERO)
+	assert_true(prison_room.has_point(dungeon_level.get_prison_boss_cell()))
+	assert_true(dungeon_level.is_boss_prison_locked())
+	assert_false(dungeon_level.is_walkable(dungeon_level.get_prison_door_cell()))
+	assert_null(dungeon_level.get_prison_boss())
+	assert_eq(key_count, 1)
+
+
+func test_boss_prison_unlock_consumes_the_key_and_spawns_the_cyclopes() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var approach_cell: Vector2i = _get_adjacent_empty_cell(
+		dungeon_level,
+		dungeon_level.get_prison_door_cell(),
+	)
+	player.current_cell = approach_cell
+	player.position = dungeon_level.cell_to_world(approach_cell)
+	player.inventory.add_item(DungeonLevel.BOSS_PRISON_KEY)
+
+	assert_true(dungeon_level.interact_with_prison(player.current_cell, player.inventory))
+
+	var boss: CyclopesEnemy = dungeon_level.get_prison_boss()
+	assert_true(dungeon_level.is_boss_prison_unlocked())
+	assert_true(dungeon_level.is_walkable(dungeon_level.get_prison_door_cell()))
+	assert_eq(player.inventory.get_item_count(DungeonLevel.BOSS_PRISON_KEY), 0)
+	assert_not_null(boss)
+	assert_eq(boss.health.max_hearts, 30)
+	assert_true(dungeon_level.enemies.has(boss))
+
+
+func test_boss_prison_stays_locked_without_its_key() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var approach_cell: Vector2i = _get_adjacent_empty_cell(
+		dungeon_level,
+		dungeon_level.get_prison_door_cell(),
+	)
+	player.current_cell = approach_cell
+	player.position = dungeon_level.cell_to_world(approach_cell)
+
+	assert_true(dungeon_level.interact_with_prison(player.current_cell, player.inventory))
+	assert_true(dungeon_level.is_boss_prison_locked())
+	assert_null(dungeon_level.get_prison_boss())
+	assert_false(dungeon_level.is_walkable(dungeon_level.get_prison_door_cell()))
+	var status_log: StatusLog = main_scene.get_node("%StatusLog") as StatusLog
+	assert_true(status_log.get_messages().has("The Boss Prison is locked. Find a Boss Prison Key."))
+
+
 func test_main_scene_contains_weapon_pickups() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var has_weapon_pickup: bool = false

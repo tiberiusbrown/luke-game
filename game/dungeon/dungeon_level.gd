@@ -8,6 +8,7 @@ signal item_collected(item_name: String, cell: Vector2i)
 signal combat_event(message: String)
 signal vendor_interaction_requested(vendor: DungeonVendor)
 signal companion_event(message: String)
+signal prison_event(message: String)
 signal player_control_changed(previous_player: DungeonEntity, current_player: DungeonEntity)
 signal game_over
 
@@ -24,6 +25,10 @@ const ITEM_COUNT: int = 3
 const ANCIENT_COIN_COUNT: int = 24
 const HIRELING_COST: int = 5
 const MONSTER_COUNT: int = 12
+const BOSS_PRISON_KEY: String = "Boss Prison Key"
+const BOSS_PRISON_KEY_ITEM_NAME: String = BOSS_PRISON_KEY
+const PRISON_ROOM_SIZE: Vector2i = Vector2i(8, 7)
+const PRISON_ROOM_MARGIN: int = 2
 const WEAPON_DEFINITIONS: Array[Dictionary] = [
 	{"name": "Rusty Sword", "damage": 2},
 	{"name": "Bone Axe", "damage": 3},
@@ -47,6 +52,12 @@ var hireling_cell: Vector2i = Vector2i.ZERO
 var hireling: DungeonHireling = null
 var has_hired_hireling: bool = false
 var is_hireling_dead: bool = false
+var prison_room: Rect2i = Rect2i()
+var prison_door_cell: Vector2i = Vector2i.ZERO
+var prison_boss_cell: Vector2i = Vector2i.ZERO
+var prison_key_cell: Vector2i = Vector2i.ZERO
+var prison_boss: CyclopesEnemy = null
+var is_prison_unlocked: bool = false
 var pickups: Array[ItemPickup] = []
 var entities: Array[DungeonEntity] = []
 var enemies: Array[DungeonEnemy] = []
@@ -84,10 +95,16 @@ func _ready() -> void:
 func generate() -> void:
 	_clear_enemies()
 	_clear_hireling()
+	prison_boss = null
 	has_hired_hireling = false
 	is_hireling_dead = false
 	is_game_over = false
 	active_player = null
+	is_prison_unlocked = false
+	prison_room = Rect2i()
+	prison_door_cell = Vector2i.ZERO
+	prison_boss_cell = Vector2i.ZERO
+	prison_key_cell = Vector2i.ZERO
 	_random.randomize()
 	tiles.clear()
 	visible_cells.clear()
@@ -129,6 +146,7 @@ func generate() -> void:
 	exit_cell = rooms[rooms.size() - 1].get_center()
 	vendor_room = rooms[mini(VENDOR_ROOM_INDEX, rooms.size() - 1)]
 	vendor_cell = _find_vendor_cell(vendor_room)
+	_build_prison(rooms)
 	monster_spawn_cells = _reserve_monster_spawn_cells()
 	_spawn_vendor()
 	_spawn_hireling()
@@ -228,6 +246,36 @@ func get_hireling_cell() -> Vector2i:
 	return hireling_cell
 
 
+func get_prison_room() -> Rect2i:
+	return prison_room
+
+
+func get_prison_door_cell() -> Vector2i:
+	return prison_door_cell
+
+
+func get_prison_boss_cell() -> Vector2i:
+	return prison_boss_cell
+
+
+func get_prison_key_cell() -> Vector2i:
+	return prison_key_cell
+
+
+func get_prison_boss() -> CyclopesEnemy:
+	if prison_boss == null or not is_instance_valid(prison_boss):
+		return null
+	return prison_boss
+
+
+func is_boss_prison_unlocked() -> bool:
+	return is_prison_unlocked
+
+
+func is_boss_prison_locked() -> bool:
+	return not is_prison_unlocked
+
+
 func is_hireling_hired() -> bool:
 	return has_hired_hireling
 
@@ -286,6 +334,43 @@ func interact_with_hireling(player_cell: Vector2i, player_inventory: PlayerInven
 	has_hired_hireling = true
 	hireling.hire()
 	companion_event.emit("You hire the fighter for %d Ancient Coins" % HIRELING_COST)
+	return true
+
+
+func interact_with_prison(player_cell: Vector2i, player_inventory: PlayerInventory) -> bool:
+	if prison_room.size == Vector2i.ZERO or not _are_adjacent(player_cell, prison_door_cell):
+		return false
+	if is_prison_unlocked:
+		return true
+
+	if player_inventory == null or player_inventory.get_item_count(BOSS_PRISON_KEY) <= 0:
+		prison_event.emit("The Boss Prison is locked. Find a Boss Prison Key.")
+		return true
+
+	return unlock_prison(player_inventory)
+
+
+func unlock_prison(player_inventory: PlayerInventory) -> bool:
+	if is_prison_unlocked:
+		return true
+	if prison_room.size == Vector2i.ZERO or player_inventory == null:
+		return false
+	if not player_inventory.remove_item(BOSS_PRISON_KEY):
+		return false
+
+	is_prison_unlocked = true
+	tiles[prison_door_cell.y][prison_door_cell.x] = FLOOR
+	var boss: CyclopesEnemy = CyclopesEnemy.new()
+	var spawned_boss: DungeonEnemy = spawn_enemy(boss, prison_boss_cell)
+	if spawned_boss == null:
+		is_prison_unlocked = false
+		tiles[prison_door_cell.y][prison_door_cell.x] = WALL
+		player_inventory.add_item(BOSS_PRISON_KEY)
+		return false
+
+	prison_boss = boss
+	prison_event.emit("The Boss Prison opens. The Cyclopes awakens!")
+	_refresh_visibility()
 	return true
 
 
@@ -521,6 +606,111 @@ func _create_edge_room(side: int) -> Rect2i:
 	return Rect2i(room_position, Vector2i(room_width, room_height))
 
 
+func _build_prison(rooms: Array[Rect2i]) -> void:
+	prison_room = _choose_prison_room(rooms)
+	if prison_room.size == Vector2i.ZERO or rooms.is_empty():
+		return
+
+	var room_center: Vector2i = prison_room.get_center()
+	var anchor_cell: Vector2i = _find_nearest_room_center(rooms, room_center)
+	var difference: Vector2i = anchor_cell - room_center
+	var door_direction: Vector2i
+	if abs(difference.x) >= abs(difference.y):
+		door_direction = Vector2i(-1, 0) if difference.x < 0 else Vector2i(1, 0)
+	else:
+		door_direction = Vector2i(0, -1) if difference.y < 0 else Vector2i(0, 1)
+
+	prison_door_cell = _get_prison_edge_cell(prison_room, door_direction)
+	var approach_cell: Vector2i = prison_door_cell + door_direction
+	prison_boss_cell = room_center
+
+	_carve_room(prison_room)
+	_carve_corridor(anchor_cell, approach_cell)
+	_wall_prison_boundary()
+
+
+func _choose_prison_room(rooms: Array[Rect2i]) -> Rect2i:
+	var clear_candidates: Array[Rect2i] = []
+	var best_candidate: Rect2i = Rect2i()
+	var best_blocked_cell_count: int = 1_000_000
+
+	for y in range(PRISON_ROOM_MARGIN, GRID_HEIGHT - PRISON_ROOM_SIZE.y - PRISON_ROOM_MARGIN + 1):
+		for x in range(PRISON_ROOM_MARGIN, GRID_WIDTH - PRISON_ROOM_SIZE.x - PRISON_ROOM_MARGIN + 1):
+			var candidate: Rect2i = Rect2i(Vector2i(x, y), PRISON_ROOM_SIZE)
+			if _overlaps_any_room(candidate.grow(1), rooms):
+				continue
+
+			var blocked_cell_count: int = _count_walkable_cells(candidate.grow(1))
+			if blocked_cell_count == 0:
+				clear_candidates.append(candidate)
+			if blocked_cell_count < best_blocked_cell_count:
+				best_blocked_cell_count = blocked_cell_count
+				best_candidate = candidate
+
+	if not clear_candidates.is_empty():
+		return clear_candidates[_random.randi_range(0, clear_candidates.size() - 1)]
+	return best_candidate
+
+
+func _overlaps_any_room(candidate: Rect2i, rooms: Array[Rect2i]) -> bool:
+	for room: Rect2i in rooms:
+		if (
+			candidate.position.x < room.end.x
+			and candidate.end.x > room.position.x
+			and candidate.position.y < room.end.y
+			and candidate.end.y > room.position.y
+
+		):
+			return true
+	return false
+
+
+func _count_walkable_cells(area: Rect2i) -> int:
+	var count: int = 0
+	for y in range(area.position.y, area.end.y):
+		for x in range(area.position.x, area.end.x):
+			if is_walkable(Vector2i(x, y)):
+				count += 1
+	return count
+
+
+func _find_nearest_room_center(rooms: Array[Rect2i], target_cell: Vector2i) -> Vector2i:
+	var nearest_cell: Vector2i = rooms[0].get_center()
+	var nearest_distance: int = 1_000_000
+	for room: Rect2i in rooms:
+		var room_center: Vector2i = room.get_center()
+		var distance: int = absi(room_center.x - target_cell.x) + absi(room_center.y - target_cell.y)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_cell = room_center
+	return nearest_cell
+
+
+func _get_prison_edge_cell(room: Rect2i, direction: Vector2i) -> Vector2i:
+	var room_center: Vector2i = room.get_center()
+	if direction.x < 0:
+		return Vector2i(room.position.x, room_center.y)
+	if direction.x > 0:
+		return Vector2i(room.end.x - 1, room_center.y)
+	if direction.y < 0:
+		return Vector2i(room_center.x, room.position.y)
+	return Vector2i(room_center.x, room.end.y - 1)
+
+
+func _wall_prison_boundary() -> void:
+	for y in range(prison_room.position.y, prison_room.end.y):
+		for x in range(prison_room.position.x, prison_room.end.x):
+			if (
+				x == prison_room.position.x
+				or x == prison_room.end.x - 1
+				or y == prison_room.position.y
+				or y == prison_room.end.y - 1
+			):
+				tiles[y][x] = WALL
+	if prison_door_cell != Vector2i.ZERO:
+		tiles[prison_door_cell.y][prison_door_cell.x] = WALL
+
+
 func _get_edge_cell(room: Rect2i, side: int) -> Vector2i:
 	var room_center: Vector2i = room.get_center()
 	match side:
@@ -558,6 +748,7 @@ func _reserve_monster_spawn_cells() -> Array[Vector2i]:
 				and is_cell_on_side(cell, monster_spawn_side)
 				and cell != start_cell
 				and cell != exit_cell
+				and not prison_room.has_point(cell)
 				and not vendor_room.has_point(cell)
 			):
 				available_cells.append(cell)
@@ -571,6 +762,7 @@ func _reserve_monster_spawn_cells() -> Array[Vector2i]:
 
 func _spawn_items() -> void:
 	clear_pickups()
+	prison_key_cell = Vector2i.ZERO
 
 	var candidate_cells: Array[Vector2i] = []
 	for y in range(GRID_HEIGHT):
@@ -581,10 +773,15 @@ func _spawn_items() -> void:
 				and cell != start_cell
 				and cell != exit_cell
 				and cell != hireling_cell
+				and not prison_room.has_point(cell)
 				and not monster_spawn_cells.has(cell)
 				and not vendor_room.has_point(cell)
 			):
 				candidate_cells.append(cell)
+
+	if not candidate_cells.is_empty():
+		prison_key_cell = _take_random_candidate(candidate_cells)
+		spawn_pickup(BOSS_PRISON_KEY, prison_key_cell)
 
 	var item_count: int = mini(ITEM_COUNT, candidate_cells.size())
 	for item_index in range(item_count):
@@ -618,6 +815,7 @@ func _spawn_enemies() -> void:
 			or cell == start_cell
 			or cell == exit_cell
 			or cell == hireling_cell
+			or prison_room.has_point(cell)
 			or vendor_room.has_point(cell)
 		):
 			continue
@@ -709,6 +907,7 @@ func _spawn_hireling() -> void:
 				is_walkable(cell)
 				and cell != start_cell
 				and cell != exit_cell
+				and not prison_room.has_point(cell)
 				and not monster_spawn_cells.has(cell)
 				and not vendor_room.has_point(cell)
 			):
@@ -822,6 +1021,8 @@ func _on_entity_defeated(entity: DungeonEntity) -> void:
 		return
 
 	if entity is DungeonEnemy:
+		if entity == prison_boss:
+			prison_boss = null
 		unregister_entity(entity)
 
 
@@ -950,6 +1151,42 @@ func _draw() -> void:
 			Vector2(vendor_room.size * TILE_SIZE),
 		)
 		draw_rect(room_rect.grow(-2.0), Color(0.84, 0.66, 0.37, 0.38), false, 2.0)
+	_draw_prison_room()
+
+
+func _draw_prison_room() -> void:
+	if prison_room.size == Vector2i.ZERO:
+		return
+	if not is_cell_known(prison_door_cell) and not is_cell_known(prison_boss_cell):
+		return
+
+	var room_rect: Rect2 = Rect2(
+		Vector2(prison_room.position * TILE_SIZE),
+		Vector2(prison_room.size * TILE_SIZE),
+	)
+	var border_color: Color = Color("#e85f70") if not is_prison_unlocked else Color("#b88c4f")
+	draw_rect(room_rect.grow(-2.0), border_color.darkened(0.38), false, 2.0)
+
+	if is_cell_known(prison_door_cell):
+		var door_rect: Rect2 = Rect2(
+			Vector2(prison_door_cell * TILE_SIZE) + Vector2(6.0, 6.0),
+			Vector2(TILE_SIZE - 12.0, TILE_SIZE - 12.0),
+		)
+		var door_color: Color = Color("#e85f70") if not is_prison_unlocked else Color("#b88c4f")
+		draw_rect(door_rect, door_color, false, 2.0)
+		if not is_prison_unlocked:
+			draw_line(
+				door_rect.position + Vector2(5.0, 5.0),
+				door_rect.end - Vector2(5.0, 5.0),
+				door_color,
+				2.0,
+			)
+			draw_line(
+				Vector2(door_rect.end.x - 5.0, door_rect.position.y + 5.0),
+				Vector2(door_rect.position.x + 5.0, door_rect.end.y - 5.0),
+				door_color,
+				2.0,
+			)
 
 
 func _draw_marker(cell: Vector2i, color: Color, is_exit: bool) -> void:
