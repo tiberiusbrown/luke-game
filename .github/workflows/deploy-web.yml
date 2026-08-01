@@ -34,13 +34,31 @@ jobs:
           relative_project_path: ./
           presets_to_export: Web
           use_preset_export_path: true
+          verbose: true
+
+      - name: Inspect generated Web export
+        shell: bash
+        run: |
+          echo "Generated Web export:"
+          find build/web -maxdepth 2 -type f -printf '%P\n' | sort
 
       - name: Verify Web export
         shell: bash
         run: |
-          test -f build/web/index.html
-          test -n "$(find build/web -type f -name '*.wasm' -print -quit)"
-          test -n "$(find build/web -type f -name '*.pck' -print -quit)"
+          if [[ ! -f build/web/index.html ]]; then
+            echo "::error::Missing build/web/index.html"
+            exit 1
+          fi
+
+          if ! find build/web -type f -name '*.wasm' -print -quit | grep -q .; then
+            echo "::error::Web export contains no .wasm file"
+            exit 1
+          fi
+
+          if ! find build/web -type f -name '*.pck' -print -quit | grep -q .; then
+            echo "::error::Web export contains no .pck file"
+            exit 1
+          fi
 
       - name: Add .nojekyll
         shell: bash
