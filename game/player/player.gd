@@ -115,8 +115,6 @@ func _get_direction_for_key(key_event: InputEventKey) -> Vector2i:
 		return Vector2i(-1, 0)
 	if key_event.keycode == KEY_D or key_event.physical_keycode == KEY_D:
 		return Vector2i(1, 0)
-	if key_event.keycode == KEY_W or key_event.physical_keycode == KEY_W:
-		return Vector2i(0, -1)
 	if key_event.keycode == KEY_S or key_event.physical_keycode == KEY_S:
 		return Vector2i(0, 1)
 	return Vector2i.ZERO

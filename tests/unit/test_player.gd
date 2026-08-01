@@ -62,6 +62,17 @@ func test_key_echo_does_not_start_an_extra_move() -> void:
 	assert_eq(player.get_current_cell(), Vector2i(3, 2))
 
 
+func test_w_key_is_reserved_for_the_wield_menu() -> void:
+	var start_cell: Vector2i = player.get_current_cell()
+	var key_event: InputEventKey = InputEventKey.new()
+	key_event.keycode = KEY_W
+	key_event.pressed = true
+
+	player._unhandled_input(key_event)
+
+	assert_eq(player.get_current_cell(), start_cell)
+
+
 func test_moving_onto_a_pickup_adds_it_to_inventory() -> void:
 	dungeon_level.clear_pickups()
 	dungeon_level.spawn_pickup("Amber Potion", Vector2i(3, 2))
@@ -87,7 +98,7 @@ func test_player_takes_damage_in_hearts_and_cannot_move_when_depleted() -> void:
 	assert_false(player.try_move(Vector2i(1, 0)))
 
 
-func test_moving_onto_a_weapon_pickup_equips_its_attack_damage() -> void:
+func test_moving_onto_a_weapon_pickup_does_not_wield_it() -> void:
 	dungeon_level.clear_pickups()
 	var weapon: WeaponData = WeaponData.new("Bone Axe", 3)
 	dungeon_level.spawn_weapon(weapon, Vector2i(3, 2))
@@ -95,10 +106,14 @@ func test_moving_onto_a_weapon_pickup_equips_its_attack_damage() -> void:
 	assert_true(player.try_move(Vector2i(1, 0)))
 	await get_tree().create_timer(DungeonPlayer.MOVE_DURATION + 0.05).timeout
 
-	assert_eq(player.inventory.get_equipped_weapon(), weapon)
-	assert_eq(player.get_attack_damage(), 3)
+	assert_null(player.inventory.get_equipped_weapon())
+	assert_eq(player.get_attack_damage(), 0)
 	assert_eq(player.inventory.get_weapon_attack_damage("Bone Axe"), 3)
 	assert_eq(dungeon_level.pickups.size(), 0)
+
+	assert_true(player.inventory.wield_weapon(weapon))
+	assert_eq(player.inventory.get_equipped_weapon(), weapon)
+	assert_eq(player.get_attack_damage(), 3)
 
 
 func _set_up_test_map() -> void:

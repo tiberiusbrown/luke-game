@@ -23,14 +23,29 @@ func test_blank_item_names_are_not_added() -> void:
 	assert_true(inventory.is_empty())
 
 
-func test_weapon_is_stored_and_equipped_with_its_attack_damage() -> void:
+func test_weapon_is_stored_without_being_wielded() -> void:
 	var weapon: WeaponData = WeaponData.new("Bone Axe", 3)
 	inventory.add_weapon(weapon)
 
 	assert_eq(inventory.get_total_item_count(), 1)
 	assert_eq(inventory.get_item_count("Bone Axe"), 1)
-	assert_eq(inventory.get_equipped_weapon(), weapon)
+	assert_null(inventory.get_equipped_weapon())
 	assert_eq(inventory.get_weapon_attack_damage("Bone Axe"), 3)
+
+
+func test_weapon_can_be_wielded_and_unwielded() -> void:
+	var first_weapon: WeaponData = WeaponData.new("Bone Axe", 3)
+	var second_weapon: WeaponData = WeaponData.new("Rusty Sword", 2)
+	inventory.add_weapon(first_weapon)
+	inventory.add_weapon(second_weapon)
+
+	assert_false(inventory.is_weapon_wielded(second_weapon))
+	assert_true(inventory.toggle_weapon_wielded(second_weapon))
+	assert_eq(inventory.get_equipped_weapon(), second_weapon)
+	assert_true(inventory.toggle_weapon_wielded(second_weapon))
+	assert_null(inventory.get_equipped_weapon())
+	assert_true(inventory.toggle_weapon_wielded(first_weapon))
+	assert_eq(inventory.get_equipped_weapon(), first_weapon)
 
 
 func test_weapon_damage_is_limited_to_two_or_three_hearts() -> void:

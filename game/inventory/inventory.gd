@@ -3,6 +3,8 @@ extends RefCounted
 
 signal inventory_changed
 signal weapon_equipped(weapon: WeaponData)
+signal weapon_wielded(weapon: WeaponData)
+signal weapon_unwielded(weapon: WeaponData)
 
 var _items: Array[String] = []
 var _weapons: Array[WeaponData] = []
@@ -24,9 +26,7 @@ func add_weapon(weapon: WeaponData) -> void:
 
 	_weapons.append(weapon)
 	_items.append(weapon.weapon_name)
-	equipped_weapon = weapon
 	inventory_changed.emit()
-	weapon_equipped.emit(weapon)
 
 
 func get_item_count(item_name: String) -> int:
@@ -51,8 +51,48 @@ func get_weapons() -> Array[WeaponData]:
 	return weapons
 
 
+func get_wieldable_weapons() -> Array[WeaponData]:
+	return get_weapons()
+
+
 func get_equipped_weapon() -> WeaponData:
 	return equipped_weapon
+
+
+func is_weapon_wielded(weapon: WeaponData) -> bool:
+	return weapon != null and equipped_weapon == weapon
+
+
+func wield_weapon(weapon: WeaponData) -> bool:
+	if weapon == null or not _contains_weapon(weapon):
+		return false
+	if equipped_weapon == weapon:
+		return true
+
+	var previous_weapon: WeaponData = equipped_weapon
+	equipped_weapon = weapon
+	inventory_changed.emit()
+	if previous_weapon != null:
+		weapon_unwielded.emit(previous_weapon)
+	weapon_equipped.emit(weapon)
+	weapon_wielded.emit(weapon)
+	return true
+
+
+func unwield_weapon(weapon: WeaponData) -> bool:
+	if weapon == null or equipped_weapon != weapon:
+		return false
+
+	equipped_weapon = null
+	inventory_changed.emit()
+	weapon_unwielded.emit(weapon)
+	return true
+
+
+func toggle_weapon_wielded(weapon: WeaponData) -> bool:
+	if is_weapon_wielded(weapon):
+		return unwield_weapon(weapon)
+	return wield_weapon(weapon)
 
 
 func get_weapon_attack_damage(weapon_name: String) -> int:
@@ -68,3 +108,10 @@ func get_total_item_count() -> int:
 
 func is_empty() -> bool:
 	return _items.is_empty()
+
+
+func _contains_weapon(weapon: WeaponData) -> bool:
+	for stored_weapon: WeaponData in _weapons:
+		if stored_weapon == weapon:
+			return true
+	return false
