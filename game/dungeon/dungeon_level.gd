@@ -16,8 +16,14 @@ const WALL: int = 0
 const FLOOR: int = 1
 const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shard"]
 const ITEM_COUNT: int = 3
-const WEAPON_NAMES: Array[String] = ["Rusty Sword", "Bone Axe"]
-const WEAPON_DAMAGE: Array[int] = [2, 3]
+const WEAPON_DEFINITIONS: Array[Dictionary] = [
+	{"name": "Rusty Sword", "damage": 2},
+	{"name": "Bone Axe", "damage": 3},
+	{"name": "Iron Mace", "damage": 2},
+	{"name": "Crystal Spear", "damage": 3},
+	{"name": "Shadow Dagger", "damage": 2},
+	{"name": "Thunder Hammer", "damage": 3},
+]
 const VENDOR_ROOM_INDEX: int = 1
 
 var tiles: Array = []
@@ -376,12 +382,13 @@ func _spawn_items() -> void:
 		var cell: Vector2i = _take_random_candidate(candidate_cells)
 		spawn_pickup(ITEM_NAMES[item_index % ITEM_NAMES.size()], cell)
 
-	var weapon_count: int = mini(WEAPON_NAMES.size(), candidate_cells.size())
+	var weapon_count: int = mini(WEAPON_DEFINITIONS.size(), candidate_cells.size())
 	for weapon_index in range(weapon_count):
 		var weapon_cell: Vector2i = _take_random_candidate(candidate_cells)
+		var weapon_definition: Dictionary = WEAPON_DEFINITIONS[weapon_index]
 		var weapon: WeaponData = WeaponData.new(
-			WEAPON_NAMES[weapon_index],
-			WEAPON_DAMAGE[weapon_index],
+			str(weapon_definition["name"]),
+			int(weapon_definition["damage"]),
 		)
 		spawn_weapon(weapon, weapon_cell)
 

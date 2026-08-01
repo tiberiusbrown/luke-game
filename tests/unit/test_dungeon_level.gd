@@ -17,3 +17,13 @@ func test_world_to_cell_maps_positions_to_grid_cells() -> void:
 	assert_eq(dungeon_level.world_to_cell(Vector2(0.0, 0.0)), Vector2i(0, 0))
 	assert_eq(dungeon_level.world_to_cell(Vector2(127.9, 64.0)), Vector2i(3, 2))
 
+
+func test_generated_dungeon_spawns_each_weapon_definition_as_a_pickup() -> void:
+	var weapon_names: Array[String] = []
+	for pickup: ItemPickup in dungeon_level.pickups:
+		if pickup.weapon_data != null:
+			weapon_names.append(pickup.weapon_data.weapon_name)
+
+	assert_eq(weapon_names.size(), DungeonLevel.WEAPON_DEFINITIONS.size())
+	for weapon_definition: Dictionary in DungeonLevel.WEAPON_DEFINITIONS:
+		assert_true(weapon_names.has(str(weapon_definition["name"])))

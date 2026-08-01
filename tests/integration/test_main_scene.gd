@@ -76,6 +76,34 @@ func test_vendor_opens_when_player_presses_e_while_adjacent() -> void:
 	assert_true(status_log.get_messages().has("Rook trades Ancient Coin for Amber Potion"))
 
 
+func test_vendor_panel_keeps_the_offer_prompt_below_a_full_player_inventory() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var vendor_panel: VendorPanel = main_scene.get_node("%VendorPanel") as VendorPanel
+	var vendor: DungeonVendor = dungeon_level.get_vendor()
+	for item_name: String in DungeonLevel.ITEM_NAMES:
+		player.inventory.add_item(item_name)
+	for weapon_definition: Dictionary in DungeonLevel.WEAPON_DEFINITIONS:
+		player.inventory.add_weapon(
+			WeaponData.new(
+				str(weapon_definition["name"]),
+				int(weapon_definition["damage"]),
+			)
+		)
+
+	vendor_panel.show_vendor(vendor, player.inventory)
+	await get_tree().process_frame
+
+	var player_offer_label: Label = main_scene.get_node("%PlayerOfferLabel") as Label
+	var selected_side_label: Label = main_scene.get_node("%SelectedSideLabel") as Label
+	var trade_status_label: Label = main_scene.get_node("%TradeStatusLabel") as Label
+	var offer_bottom: float = player_offer_label.position.y + player_offer_label.get_combined_minimum_size().y
+	var status_bottom: float = trade_status_label.position.y + trade_status_label.get_combined_minimum_size().y
+
+	assert_lte(offer_bottom, selected_side_label.position.y)
+	assert_lte(status_bottom, vendor_panel.size.y)
+
+
 func test_main_scene_spawns_one_zombie_and_one_skeleton_without_health_ui() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var enemy_types: Array[String] = []
