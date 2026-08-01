@@ -3,6 +3,9 @@
 .godot/verify_runtime/
 *.translation
 
+# Local verification logs
+.codex-runtime/
+
 # Local build output
 build/
 

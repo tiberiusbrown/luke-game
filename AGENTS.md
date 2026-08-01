@@ -63,7 +63,19 @@ This script provides project-local APPDATA, LOCALAPPDATA, TEMP, and TMP
 directories and performs:
 
 1. A headless resource import.
-2. A short headless main-scene smoke test.
+2. The vendored GUT test suite from `tests/unit` and `tests/integration`.
+3. A short headless main-scene smoke test.
+
+Testing requirements:
+
+- Keep isolated project-logic tests under `tests/unit`.
+- Keep scene and multi-node behavior tests under `tests/integration`.
+- Name test scripts with the `test_` prefix and use typed GDScript.
+- When a test accesses a scene node, give that node a stable unique name with
+  `unique_name_in_owner = true` and access it through its unique-name path.
+- Run all verification through `powershell -ExecutionPolicy Bypass -File
+  tools/verify.ps1`; do not launch Godot graphically from Codex.
+- Godot command output is redirected to `.codex-runtime` by the verifier.
 
 Report:
 - Files changed

@@ -15,12 +15,15 @@ color = Color(0.035, 0.043, 0.071, 1)
 
 [node name="DungeonLevel" type="Node2D" parent="."]
 position = Vector2(80, 80)
+unique_name_in_owner = true
 script = ExtResource("2_dungeon")
 
 [node name="Player" type="CharacterBody2D" parent="DungeonLevel"]
+unique_name_in_owner = true
 script = ExtResource("3_player")
 
 [node name="Hud" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
 
 [node name="TopBar" type="ColorRect" parent="Hud"]
 offset_right = 960.0
@@ -47,6 +50,7 @@ theme_override_font_sizes/font_size = 12
 text = "ARROW KEYS  •  EXPLORE THE DUNGEON"
 
 [node name="PositionLabel" type="Label" parent="Hud"]
+unique_name_in_owner = true
 offset_left = 760.0
 offset_top = 25.0
 offset_right = 936.0
