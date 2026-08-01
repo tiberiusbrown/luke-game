@@ -420,6 +420,15 @@ func _spawn_enemies() -> void:
 	if not candidate_cells.is_empty():
 		var skeleton_cell: Vector2i = _take_random_candidate(candidate_cells)
 		spawn_enemy(SkeletonEnemy.new(), skeleton_cell)
+	if not candidate_cells.is_empty():
+		var vampire_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(VampireEnemy.new(), vampire_cell)
+	if not candidate_cells.is_empty():
+		var spider_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(SpiderEnemy.new(), spider_cell)
+	if not candidate_cells.is_empty():
+		var ghost_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(GhostEnemy.new(), ghost_cell)
 
 
 func _clear_enemies() -> void:

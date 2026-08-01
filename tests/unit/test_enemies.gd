@@ -32,6 +32,46 @@ func test_zombie_and_skeleton_have_their_requested_combat_stats() -> void:
 	assert_gt(skeleton.speed, player.speed)
 
 
+func test_vampire_spider_and_ghost_have_their_requested_combat_stats() -> void:
+	var vampire: VampireEnemy = VampireEnemy.new()
+	var spider: SpiderEnemy = SpiderEnemy.new()
+	var ghost: GhostEnemy = GhostEnemy.new()
+	add_child_autofree(vampire)
+	add_child_autofree(spider)
+	add_child_autofree(ghost)
+
+	assert_eq(vampire.health.max_hearts, 10)
+	assert_eq(vampire.attack_damage, 2)
+	assert_eq(vampire.hit_chance, 0.50)
+	assert_eq(vampire.speed, player.speed)
+
+	assert_eq(spider.health.max_hearts, 5)
+	assert_eq(spider.attack_damage, 1)
+	assert_eq(spider.hit_chance, 1.0)
+	assert_eq(spider.speed, player.speed)
+
+	assert_eq(ghost.health.max_hearts, 10)
+	assert_eq(ghost.attack_damage, 1)
+	assert_eq(ghost.hit_chance, 0.50)
+	assert_eq(ghost.speed, player.speed)
+
+
+func test_enemies_wait_for_a_player_move_before_taking_a_turn() -> void:
+	var ghost: GhostEnemy = GhostEnemy.new()
+	ghost.hit_chance = 1.0
+	dungeon_level.spawn_enemy(ghost, Vector2i(3, 3))
+
+	await get_tree().create_timer(0.25).timeout
+
+	assert_eq(player.health.current_hearts, 10)
+	assert_eq(ghost.current_cell, Vector2i(3, 3))
+
+	assert_true(player.try_move(Vector2i(0, 1)))
+	await get_tree().create_timer(0.75).timeout
+
+	assert_eq(player.health.current_hearts, 9)
+
+
 func test_player_damage_is_base_damage_plus_wielded_weapon_damage() -> void:
 	assert_eq(player.get_attack_damage(), DungeonPlayer.BASE_ATTACK_DAMAGE)
 	var weapon: WeaponData = WeaponData.new("Bone Axe", 3)

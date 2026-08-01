@@ -104,15 +104,18 @@ func test_vendor_panel_keeps_the_offer_prompt_below_a_full_player_inventory() ->
 	assert_lte(status_bottom, vendor_panel.size.y)
 
 
-func test_main_scene_spawns_one_zombie_and_one_skeleton_without_health_ui() -> void:
+func test_main_scene_spawns_all_enemy_types_without_health_ui() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var enemy_types: Array[String] = []
 	for enemy: DungeonEnemy in dungeon_level.enemies:
 		enemy_types.append(enemy.enemy_type)
 
-	assert_eq(dungeon_level.enemies.size(), 2)
+	assert_eq(dungeon_level.enemies.size(), 5)
 	assert_true(enemy_types.has("Zombie"))
 	assert_true(enemy_types.has("Skeleton"))
+	assert_true(enemy_types.has("Vampire"))
+	assert_true(enemy_types.has("Spider"))
+	assert_true(enemy_types.has("Ghost"))
 	assert_eq(main_scene.get_node("%HealthBar").get_parent().name, "Hud")
 
 
