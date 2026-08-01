@@ -140,8 +140,21 @@ func test_player_can_move_while_enemy_animation_is_active_and_enemy_catches_up()
 
 func test_hit_effect_particle_amount_grows_with_damage() -> void:
 	assert_gt(HitEffect.particle_amount_for_damage(2), HitEffect.particle_amount_for_damage(1))
-	assert_eq(HitEffect.particle_amount_for_damage(1), 8)
-	assert_eq(HitEffect.particle_amount_for_damage(3), 16)
+	assert_eq(HitEffect.particle_amount_for_damage(1), HitEffect.PARTICLE_AMOUNT_MIN)
+	assert_eq(HitEffect.particle_amount_for_damage(3), HitEffect.PARTICLE_AMOUNT_MAX)
+
+
+func test_hit_effect_particles_render_above_entities_with_radial_gravity() -> void:
+	var effect: HitEffect = HitEffect.new()
+	effect.setup(1, Color.WHITE)
+	add_child_autofree(effect)
+
+	assert_eq(effect.z_index, HitEffect.EFFECT_Z_INDEX)
+	assert_eq(effect._particles.emission_shape, CPUParticles2D.EMISSION_SHAPE_POINT)
+	assert_eq(effect._particles.direction, Vector2.RIGHT)
+	assert_eq(effect._particles.spread, 180.0)
+	assert_eq(effect._particles.randomness, 1.0)
+	assert_eq(effect._particles.gravity, Vector2(0.0, 96.0))
 
 
 func _set_up_test_map() -> void:
