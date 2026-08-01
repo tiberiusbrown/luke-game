@@ -58,6 +58,21 @@ func test_player_attacks_by_moving_into_an_enemy_and_uses_animation() -> void:
 	assert_eq(enemy.get_current_cell(), Vector2i(3, 2))
 
 
+func test_lethal_player_attack_finishes_animation_after_target_is_freed() -> void:
+	player.hit_chance = 1.0
+	var enemy: ZombieEnemy = ZombieEnemy.new()
+	dungeon_level.spawn_enemy(enemy, Vector2i(3, 2))
+	var enemy_health: HeartHealth = enemy.health
+	enemy_health.current_hearts = 1
+
+	assert_true(player.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(HitEffect.DURATION + 0.1).timeout
+
+	assert_true(enemy_health.is_depleted())
+	assert_false(player.is_attacking)
+	assert_null(dungeon_level.get_entity_at(Vector2i(3, 2)))
+
+
 func test_enemy_attacks_by_moving_into_the_player() -> void:
 	var enemy: ZombieEnemy = ZombieEnemy.new()
 	enemy.hit_chance = 1.0

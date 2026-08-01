@@ -162,7 +162,7 @@ func _try_attack(target: DungeonEntity) -> bool:
 	_action_tween.tween_property(self, "position", lunge_position, ATTACK_LUNGE_DURATION)
 	_action_tween.tween_callback(Callable(self, "_resolve_attack").bind(target))
 	_action_tween.tween_property(self, "position", starting_position, ATTACK_RETURN_DURATION)
-	_action_tween.tween_callback(Callable(self, "_finish_attack").bind(target))
+	_action_tween.tween_callback(_finish_attack)
 	return true
 
 
@@ -194,7 +194,7 @@ func _finish_movement() -> void:
 	action_finished.emit(self)
 
 
-func _finish_attack(_target: DungeonEntity) -> void:
+func _finish_attack() -> void:
 	if dungeon_level != null:
 		position = dungeon_level.cell_to_world(current_cell)
 	is_attacking = false
