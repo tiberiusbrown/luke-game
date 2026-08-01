@@ -2,9 +2,11 @@ class_name DungeonPlayer
 extends CharacterBody2D
 
 const MOVE_DURATION: float = 0.14
+const MAX_HEARTS: int = 10
 
 var dungeon_level: DungeonLevel
 var inventory: PlayerInventory = PlayerInventory.new()
+var health: HeartHealth = HeartHealth.new(MAX_HEARTS)
 var current_cell: Vector2i = Vector2i.ZERO
 var is_moving: bool = false
 var _move_tween: Tween
@@ -33,7 +35,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func try_move(direction: Vector2i) -> bool:
-	if dungeon_level == null or is_moving:
+	if dungeon_level == null or is_moving or health.is_depleted():
 		return false
 	if not _is_cardinal_direction(direction):
 		return false
@@ -61,6 +63,24 @@ func get_current_cell() -> Vector2i:
 	return current_cell
 
 
+func take_damage(damage_hearts: int) -> int:
+	var damage_dealt: int = health.take_damage(damage_hearts)
+	if health.is_depleted():
+		velocity = Vector2.ZERO
+	return damage_dealt
+
+
+func heal(healing_hearts: int) -> int:
+	return health.heal(healing_hearts)
+
+
+func get_attack_damage() -> int:
+	var weapon: WeaponData = inventory.get_equipped_weapon()
+	if weapon == null:
+		return 0
+	return weapon.attack_damage
+
+
 func _finish_move() -> void:
 	if dungeon_level != null:
 		position = dungeon_level.cell_to_world(current_cell)
@@ -73,9 +93,13 @@ func _collect_item_at_current_cell() -> void:
 	if dungeon_level == null:
 		return
 
-	var item_name: String = dungeon_level.collect_item_at(current_cell)
-	if not item_name.is_empty():
-		inventory.add_item(item_name)
+	var pickup: ItemPickup = dungeon_level.collect_pickup_at(current_cell)
+	if pickup == null:
+		return
+	if pickup.weapon_data != null:
+		inventory.add_weapon(pickup.weapon_data)
+	else:
+		inventory.add_item(pickup.item_name)
 
 
 func _get_direction_for_key(key_event: InputEventKey) -> Vector2i:

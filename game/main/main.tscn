@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://game/main/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://game/dungeon/dungeon_level.gd" id="2_dungeon"]
 [ext_resource type="Script" path="res://game/player/player.gd" id="3_player"]
 [ext_resource type="Script" path="res://game/inventory/inventory_panel.gd" id="4_inventory_panel"]
+[ext_resource type="Script" path="res://game/ui/heart_health_bar.gd" id="5_health_bar"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_panel"]
 bg_color = Color(0.055, 0.071, 0.118, 0.98)
@@ -64,9 +65,28 @@ theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
 theme_override_font_sizes/font_size = 12
 text = "ARROW KEYS  -  MOVE ONE TILE PER TURN    |    I  -  INVENTORY"
 
+[node name="HealthLabel" type="Label" parent="Hud"]
+offset_left = 500.0
+offset_top = 15.0
+offset_right = 592.0
+offset_bottom = 31.0
+theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
+theme_override_font_sizes/font_size = 11
+text = "HEARTS"
+vertical_alignment = 1
+
+[node name="HealthBar" type="Control" parent="Hud"]
+unique_name_in_owner = true
+offset_left = 590.0
+offset_top = 23.0
+offset_right = 790.0
+offset_bottom = 43.0
+mouse_filter = 2
+script = ExtResource("5_health_bar")
+
 [node name="PositionLabel" type="Label" parent="Hud"]
 unique_name_in_owner = true
-offset_left = 760.0
+offset_left = 800.0
 offset_top = 25.0
 offset_right = 936.0
 offset_bottom = 48.0

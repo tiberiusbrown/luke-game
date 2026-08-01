@@ -73,6 +73,34 @@ func test_moving_onto_a_pickup_adds_it_to_inventory() -> void:
 	assert_eq(dungeon_level.pickups.size(), 0)
 
 
+func test_player_starts_with_ten_hearts() -> void:
+	assert_eq(player.health.max_hearts, DungeonPlayer.MAX_HEARTS)
+	assert_eq(player.health.current_hearts, 10)
+
+
+func test_player_takes_damage_in_hearts_and_cannot_move_when_depleted() -> void:
+	assert_eq(player.take_damage(3), 3)
+	assert_eq(player.health.current_hearts, 7)
+
+	assert_eq(player.take_damage(7), 7)
+	assert_true(player.health.is_depleted())
+	assert_false(player.try_move(Vector2i(1, 0)))
+
+
+func test_moving_onto_a_weapon_pickup_equips_its_attack_damage() -> void:
+	dungeon_level.clear_pickups()
+	var weapon: WeaponData = WeaponData.new("Bone Axe", 3)
+	dungeon_level.spawn_weapon(weapon, Vector2i(3, 2))
+
+	assert_true(player.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(DungeonPlayer.MOVE_DURATION + 0.05).timeout
+
+	assert_eq(player.inventory.get_equipped_weapon(), weapon)
+	assert_eq(player.get_attack_damage(), 3)
+	assert_eq(player.inventory.get_weapon_attack_damage("Bone Axe"), 3)
+	assert_eq(dungeon_level.pickups.size(), 0)
+
+
 func _set_up_test_map() -> void:
 	dungeon_level.tiles.clear()
 	for y: int in range(DungeonLevel.GRID_HEIGHT):

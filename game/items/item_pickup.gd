@@ -4,11 +4,13 @@ extends Node2D
 @export var item_name: String = "Ancient Coin"
 
 var cell: Vector2i = Vector2i.ZERO
+var weapon_data: WeaponData = null
 
 
-func setup(new_item_name: String, new_cell: Vector2i) -> void:
+func setup(new_item_name: String, new_cell: Vector2i, new_weapon_data: WeaponData = null) -> void:
 	item_name = new_item_name
 	cell = new_cell
+	weapon_data = new_weapon_data
 	position = Vector2(
 		(float(cell.x) + 0.5) * DungeonLevel.TILE_SIZE,
 		(float(cell.y) + 0.5) * DungeonLevel.TILE_SIZE
@@ -34,7 +36,9 @@ func _draw() -> void:
 	draw_colored_polygon(points, item_color.darkened(0.25))
 	draw_polyline(points, item_color.lightened(0.2), 2.0)
 
-	if item_name == "Amber Potion":
+	if weapon_data != null:
+		_draw_weapon(item_color)
+	elif item_name == "Amber Potion":
 		draw_circle(Vector2.ZERO, 3.0, item_color.lightened(0.35))
 	elif item_name == "Ancient Coin":
 		draw_circle(Vector2.ZERO, 3.0, item_color.lightened(0.35))
@@ -45,6 +49,8 @@ func _draw() -> void:
 
 
 func _get_item_color() -> Color:
+	if weapon_data != null:
+		return Color("#c7cedc") if weapon_data.attack_damage == 2 else Color("#d08d5c")
 	match item_name:
 		"Amber Potion":
 			return Color("#d87853")
@@ -54,3 +60,9 @@ func _get_item_color() -> Color:
 			return Color("#68a7d8")
 		_:
 			return Color("#a68bd4")
+
+
+func _draw_weapon(item_color: Color) -> void:
+	draw_line(Vector2(-6, 6), Vector2(6, -6), item_color.lightened(0.25), 3.0)
+	draw_line(Vector2(-8, 3), Vector2(-3, 8), item_color.darkened(0.15), 2.0)
+	draw_line(Vector2(-5, 1), Vector2(-1, 5), item_color.lightened(0.1), 2.0)

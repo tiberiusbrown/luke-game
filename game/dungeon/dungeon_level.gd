@@ -11,6 +11,8 @@ const WALL: int = 0
 const FLOOR: int = 1
 const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shard"]
 const ITEM_COUNT: int = 3
+const WEAPON_NAMES: Array[String] = ["Rusty Sword", "Bone Axe"]
+const WEAPON_DAMAGE: Array[int] = [2, 3]
 
 var tiles: Array = []
 var start_cell: Vector2i = Vector2i.ZERO
@@ -99,17 +101,27 @@ func get_exit_cell() -> Vector2i:
 
 
 func spawn_pickup(item_name: String, cell: Vector2i) -> ItemPickup:
+	return _spawn_pickup(item_name, cell)
+
+
+func spawn_weapon(weapon: WeaponData, cell: Vector2i) -> ItemPickup:
+	if weapon == null:
+		return null
+	return _spawn_pickup(weapon.weapon_name, cell, weapon)
+
+
+func _spawn_pickup(item_name: String, cell: Vector2i, weapon: WeaponData = null) -> ItemPickup:
 	if not is_walkable(cell):
 		return null
 
 	var pickup: ItemPickup = ItemPickup.new()
-	pickup.setup(item_name, cell)
+	pickup.setup(item_name, cell, weapon)
 	add_child(pickup)
 	pickups.append(pickup)
 	return pickup
 
 
-func collect_item_at(cell: Vector2i) -> String:
+func collect_pickup_at(cell: Vector2i) -> ItemPickup:
 	for index: int in range(pickups.size() - 1, -1, -1):
 		var pickup: ItemPickup = pickups[index]
 		if not is_instance_valid(pickup):
@@ -122,8 +134,15 @@ func collect_item_at(cell: Vector2i) -> String:
 		pickups.remove_at(index)
 		pickup.queue_free()
 		item_collected.emit(item_name, cell)
-		return item_name
-	return ""
+		return pickup
+	return null
+
+
+func collect_item_at(cell: Vector2i) -> String:
+	var pickup: ItemPickup = collect_pickup_at(cell)
+	if pickup == null:
+		return ""
+	return pickup.item_name
 
 
 func clear_pickups() -> void:
@@ -175,9 +194,22 @@ func _spawn_items() -> void:
 
 	var item_count: int = mini(ITEM_COUNT, candidate_cells.size())
 	for item_index in range(item_count):
-		var candidate_index: int = _random.randi_range(0, candidate_cells.size() - 1)
-		var cell: Vector2i = candidate_cells.pop_at(candidate_index)
+		var cell: Vector2i = _take_random_candidate(candidate_cells)
 		spawn_pickup(ITEM_NAMES[item_index % ITEM_NAMES.size()], cell)
+
+	var weapon_count: int = mini(WEAPON_NAMES.size(), candidate_cells.size())
+	for weapon_index in range(weapon_count):
+		var weapon_cell: Vector2i = _take_random_candidate(candidate_cells)
+		var weapon: WeaponData = WeaponData.new(
+			WEAPON_NAMES[weapon_index],
+			WEAPON_DAMAGE[weapon_index],
+		)
+		spawn_weapon(weapon, weapon_cell)
+
+
+func _take_random_candidate(candidate_cells: Array[Vector2i]) -> Vector2i:
+	var candidate_index: int = _random.randi_range(0, candidate_cells.size() - 1)
+	return candidate_cells.pop_at(candidate_index)
 
 
 func _draw() -> void:

@@ -3,11 +3,13 @@ extends Node2D
 @onready var dungeon_level: DungeonLevel = $DungeonLevel
 @onready var player: DungeonPlayer = $DungeonLevel/Player
 @onready var position_label: Label = $Hud/PositionLabel
+@onready var health_bar: HeartHealthBar = $Hud/HealthBar
 @onready var inventory_panel: InventoryPanel = $Hud/InventoryPanel
 
 
 func _ready() -> void:
 	player.inventory.inventory_changed.connect(_on_inventory_changed)
+	health_bar.bind_health(player.health)
 	inventory_panel.refresh(player.inventory)
 	position_label.text = _get_position_text()
 

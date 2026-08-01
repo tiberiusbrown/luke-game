@@ -2,8 +2,11 @@ class_name PlayerInventory
 extends RefCounted
 
 signal inventory_changed
+signal weapon_equipped(weapon: WeaponData)
 
 var _items: Array[String] = []
+var _weapons: Array[WeaponData] = []
+var equipped_weapon: WeaponData = null
 
 
 func add_item(item_name: String) -> void:
@@ -13,6 +16,17 @@ func add_item(item_name: String) -> void:
 
 	_items.append(normalized_name)
 	inventory_changed.emit()
+
+
+func add_weapon(weapon: WeaponData) -> void:
+	if weapon == null:
+		return
+
+	_weapons.append(weapon)
+	_items.append(weapon.weapon_name)
+	equipped_weapon = weapon
+	inventory_changed.emit()
+	weapon_equipped.emit(weapon)
 
 
 func get_item_count(item_name: String) -> int:
@@ -28,6 +42,24 @@ func get_item_counts() -> Dictionary:
 	for item_name: String in _items:
 		counts[item_name] = int(counts.get(item_name, 0)) + 1
 	return counts
+
+
+func get_weapons() -> Array[WeaponData]:
+	var weapons: Array[WeaponData] = []
+	for weapon: WeaponData in _weapons:
+		weapons.append(weapon)
+	return weapons
+
+
+func get_equipped_weapon() -> WeaponData:
+	return equipped_weapon
+
+
+func get_weapon_attack_damage(weapon_name: String) -> int:
+	for weapon: WeaponData in _weapons:
+		if weapon.weapon_name == weapon_name:
+			return weapon.attack_damage
+	return 0
 
 
 func get_total_item_count() -> int:
