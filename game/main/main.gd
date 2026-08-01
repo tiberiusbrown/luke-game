@@ -14,5 +14,5 @@ func _process(_delta: float) -> void:
 
 
 func _get_position_text() -> String:
-	var cell: Vector2i = dungeon_level.world_to_cell(player.position)
+	var cell: Vector2i = player.get_current_cell()
 	return "POSITION  %02d, %02d" % [cell.x, cell.y]

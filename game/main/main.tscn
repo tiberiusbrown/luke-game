@@ -47,7 +47,7 @@ offset_right = 500.0
 offset_bottom = 58.0
 theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
 theme_override_font_sizes/font_size = 12
-text = "ARROW KEYS  •  EXPLORE THE DUNGEON"
+text = "ARROW KEYS  -  MOVE ONE TILE PER TURN"
 
 [node name="PositionLabel" type="Label" parent="Hud"]
 unique_name_in_owner = true

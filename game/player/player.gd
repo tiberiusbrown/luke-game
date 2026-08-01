@@ -1,161 +1,93 @@
 class_name DungeonPlayer
 extends CharacterBody2D
 
-const MOVE_SPEED: float = 170.0
-const MAX_COLLISION_STEP: float = 2.0
-const PLAYER_RADIUS: float = 9.0
+const MOVE_DURATION: float = 0.14
 
 var dungeon_level: DungeonLevel
+var current_cell: Vector2i = Vector2i.ZERO
+var is_moving: bool = false
+var _move_tween: Tween
 
 
 func _ready() -> void:
 	dungeon_level = get_parent() as DungeonLevel
-	position = dungeon_level.cell_to_world(dungeon_level.get_start_cell())
+	if dungeon_level == null:
+		return
+
+	current_cell = dungeon_level.get_start_cell()
+	position = dungeon_level.cell_to_world(current_cell)
+	velocity = Vector2.ZERO
 	queue_redraw()
 
 
-func _physics_process(delta: float) -> void:
-	var horizontal_input: float = 0.0
-	var vertical_input: float = 0.0
-	if Input.is_key_pressed(KEY_LEFT):
-		horizontal_input -= 1.0
-	if Input.is_key_pressed(KEY_RIGHT):
-		horizontal_input += 1.0
-	if Input.is_key_pressed(KEY_UP):
-		vertical_input -= 1.0
-	if Input.is_key_pressed(KEY_DOWN):
-		vertical_input += 1.0
-	var input_direction: Vector2 = Vector2(horizontal_input, vertical_input).normalized()
-	velocity = input_direction * MOVE_SPEED
-	_move_with_collision_slide(velocity * delta)
+func _unhandled_input(event: InputEvent) -> void:
+	var key_event: InputEventKey = event as InputEventKey
+	if key_event == null or not key_event.pressed or key_event.echo:
+		return
 
+	var direction: Vector2i = _get_direction_for_key(key_event)
+	if direction != Vector2i.ZERO:
+		try_move(direction)
+
+
+func try_move(direction: Vector2i) -> bool:
+	if dungeon_level == null or is_moving:
+		return false
+	if not _is_cardinal_direction(direction):
+		return false
+
+	var target_cell: Vector2i = current_cell + direction
+	if not dungeon_level.is_walkable(target_cell):
+		return false
+
+	var target_position: Vector2 = dungeon_level.cell_to_world(target_cell)
+	current_cell = target_cell
+	is_moving = true
+	velocity = Vector2.ZERO
+
+	if is_instance_valid(_move_tween):
+		_move_tween.kill()
+	_move_tween = create_tween()
+	_move_tween.set_trans(Tween.TRANS_SINE)
+	_move_tween.set_ease(Tween.EASE_OUT)
+	_move_tween.tween_property(self, "position", target_position, MOVE_DURATION)
+	_move_tween.tween_callback(_finish_move)
+	return true
+
+
+func get_current_cell() -> Vector2i:
+	return current_cell
+
+
+func _finish_move() -> void:
+	if dungeon_level != null:
+		position = dungeon_level.cell_to_world(current_cell)
+	is_moving = false
 	velocity = Vector2.ZERO
 
 
-func _move_with_collision_slide(motion: Vector2) -> void:
-	var motion_length: float = motion.length()
-	if is_zero_approx(motion_length):
-		return
-
-	var step_count: int = maxi(1, ceili(motion_length / MAX_COLLISION_STEP))
-	var step_motion: Vector2 = motion / float(step_count)
-	for _step: int in range(step_count):
-		position = _resolve_motion_step(position, step_motion)
-
-
-func _resolve_motion_step(start_position: Vector2, motion: Vector2) -> Vector2:
-	var requested_position: Vector2 = start_position + motion
-	if dungeon_level.can_stand_at(requested_position):
-		return requested_position
-
-	# Trying both orders matters at corners. Moving along the open side first
-	# can make the other component valid on the same frame, producing a smooth
-	# slide instead of stopping at the corner.
-	var horizontal_first: Vector2 = _resolve_axis_order(
-		start_position,
-		motion,
-		true
-	)
-	var vertical_first: Vector2 = _resolve_axis_order(
-		start_position,
-		motion,
-		false
-	)
-	var horizontal_progress: float = (horizontal_first - start_position).dot(motion)
-	var vertical_progress: float = (vertical_first - start_position).dot(motion)
-	if horizontal_progress >= vertical_progress:
-		if horizontal_first != start_position:
-			return horizontal_first
-	else:
-		if vertical_first != start_position:
-			return vertical_first
-
-	# A pure horizontal or vertical input can still be blocked by a corner
-	# even though one side of that corner is open. Only slide when the player's
-	# center is already past the obstacle's corner edge in that direction.
-	return _try_corner_slide(start_position, motion)
+func _get_direction_for_key(key_event: InputEventKey) -> Vector2i:
+	if key_event.keycode == KEY_LEFT or key_event.physical_keycode == KEY_LEFT:
+		return Vector2i(-1, 0)
+	if key_event.keycode == KEY_RIGHT or key_event.physical_keycode == KEY_RIGHT:
+		return Vector2i(1, 0)
+	if key_event.keycode == KEY_UP or key_event.physical_keycode == KEY_UP:
+		return Vector2i(0, -1)
+	if key_event.keycode == KEY_DOWN or key_event.physical_keycode == KEY_DOWN:
+		return Vector2i(0, 1)
+	if key_event.keycode == KEY_A or key_event.physical_keycode == KEY_A:
+		return Vector2i(-1, 0)
+	if key_event.keycode == KEY_D or key_event.physical_keycode == KEY_D:
+		return Vector2i(1, 0)
+	if key_event.keycode == KEY_W or key_event.physical_keycode == KEY_W:
+		return Vector2i(0, -1)
+	if key_event.keycode == KEY_S or key_event.physical_keycode == KEY_S:
+		return Vector2i(0, 1)
+	return Vector2i.ZERO
 
 
-func _try_corner_slide(start_position: Vector2, motion: Vector2) -> Vector2:
-	var slide_distance: float = motion.length()
-	if is_zero_approx(slide_distance):
-		return start_position
-
-	var slide_direction: Vector2 = _get_corner_slide_direction(start_position, motion)
-	if slide_direction != Vector2.ZERO:
-		var slide_position: Vector2 = start_position + slide_direction * slide_distance
-		if dungeon_level.can_stand_at(slide_position):
-			return slide_position
-
-	return start_position
-
-
-func _get_corner_slide_direction(start_position: Vector2, motion: Vector2) -> Vector2:
-	var requested_position: Vector2 = start_position + motion
-	if not is_zero_approx(motion.x) and is_zero_approx(motion.y):
-		var leading_x: float = signf(motion.x) * PLAYER_RADIUS
-		var top_cell: Vector2i = dungeon_level.world_to_cell(
-			requested_position + Vector2(leading_x, -PLAYER_RADIUS)
-		)
-		var bottom_cell: Vector2i = dungeon_level.world_to_cell(
-			requested_position + Vector2(leading_x, PLAYER_RADIUS)
-		)
-		var top_blocked: bool = not dungeon_level.is_walkable(top_cell)
-		var bottom_blocked: bool = not dungeon_level.is_walkable(bottom_cell)
-		if top_blocked == bottom_blocked:
-			return Vector2.ZERO
-		if top_blocked:
-			var lower_corner_edge: float = float((top_cell.y + 1) * DungeonLevel.TILE_SIZE)
-			if start_position.y > lower_corner_edge:
-				return Vector2(0.0, 1.0)
-		else:
-			var upper_corner_edge: float = float(bottom_cell.y * DungeonLevel.TILE_SIZE)
-			if start_position.y < upper_corner_edge:
-				return Vector2(0.0, -1.0)
-	elif not is_zero_approx(motion.y) and is_zero_approx(motion.x):
-		var leading_y: float = signf(motion.y) * PLAYER_RADIUS
-		var left_cell: Vector2i = dungeon_level.world_to_cell(
-			requested_position + Vector2(-PLAYER_RADIUS, leading_y)
-		)
-		var right_cell: Vector2i = dungeon_level.world_to_cell(
-			requested_position + Vector2(PLAYER_RADIUS, leading_y)
-		)
-		var left_blocked: bool = not dungeon_level.is_walkable(left_cell)
-		var right_blocked: bool = not dungeon_level.is_walkable(right_cell)
-		if left_blocked == right_blocked:
-			return Vector2.ZERO
-		if left_blocked:
-			var right_corner_edge: float = float((left_cell.x + 1) * DungeonLevel.TILE_SIZE)
-			if start_position.x > right_corner_edge:
-				return Vector2(1.0, 0.0)
-		else:
-			var left_corner_edge: float = float(right_cell.x * DungeonLevel.TILE_SIZE)
-			if start_position.x < left_corner_edge:
-				return Vector2(-1.0, 0.0)
-
-	return Vector2.ZERO
-
-
-func _resolve_axis_order(
-		start_position: Vector2,
-		motion: Vector2,
-		horizontal_first: bool
-) -> Vector2:
-	var resolved_position: Vector2 = start_position
-	if horizontal_first:
-		resolved_position = _try_axis_motion(resolved_position, Vector2(motion.x, 0.0))
-		resolved_position = _try_axis_motion(resolved_position, Vector2(0.0, motion.y))
-	else:
-		resolved_position = _try_axis_motion(resolved_position, Vector2(0.0, motion.y))
-		resolved_position = _try_axis_motion(resolved_position, Vector2(motion.x, 0.0))
-	return resolved_position
-
-
-func _try_axis_motion(start_position: Vector2, axis_motion: Vector2) -> Vector2:
-	var candidate_position: Vector2 = start_position + axis_motion
-	if dungeon_level.can_stand_at(candidate_position):
-		return candidate_position
-	return start_position
+func _is_cardinal_direction(direction: Vector2i) -> bool:
+	return abs(direction.x) + abs(direction.y) == 1
 
 
 func _draw() -> void:
