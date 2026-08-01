@@ -36,3 +36,17 @@ func test_generated_dungeon_spawns_many_ancient_coins() -> void:
 			coin_count += 1
 
 	assert_gte(coin_count, DungeonLevel.ANCIENT_COIN_COUNT)
+
+
+func test_generated_dungeon_starts_on_an_edge_and_reserves_the_opposite_side() -> void:
+	assert_true(dungeon_level.is_walkable(dungeon_level.get_start_cell()))
+	assert_true(dungeon_level.is_map_edge_cell(dungeon_level.get_start_cell()))
+	assert_eq(
+		dungeon_level.get_monster_spawn_side(),
+		dungeon_level._get_opposite_side(dungeon_level.get_start_side()),
+	)
+	assert_eq(dungeon_level.monster_spawn_cells.size(), DungeonLevel.MONSTER_COUNT)
+
+	for cell: Vector2i in dungeon_level.monster_spawn_cells:
+		assert_true(dungeon_level.is_walkable(cell))
+		assert_true(dungeon_level.is_cell_on_side(cell, dungeon_level.get_monster_spawn_side()))

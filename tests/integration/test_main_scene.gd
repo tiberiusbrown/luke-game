@@ -149,13 +149,36 @@ func test_main_scene_spawns_all_enemy_types_without_health_ui() -> void:
 	for enemy: DungeonEnemy in dungeon_level.enemies:
 		enemy_types.append(enemy.enemy_type)
 
-	assert_eq(dungeon_level.enemies.size(), 5)
+	assert_eq(dungeon_level.enemies.size(), 12)
 	assert_true(enemy_types.has("Zombie"))
 	assert_true(enemy_types.has("Skeleton"))
 	assert_true(enemy_types.has("Vampire"))
 	assert_true(enemy_types.has("Spider"))
 	assert_true(enemy_types.has("Ghost"))
+	assert_true(enemy_types.has("Goblin"))
+	assert_true(enemy_types.has("Orc"))
+	assert_true(enemy_types.has("Slime"))
+	assert_true(enemy_types.has("Mummy"))
+	assert_true(enemy_types.has("Wraith"))
+	assert_true(enemy_types.has("Golem"))
+	assert_true(enemy_types.has("Lich"))
 	assert_eq(main_scene.get_node("%HealthBar").get_parent().name, "Hud")
+
+
+func test_player_starts_on_an_edge_and_monsters_spawn_on_the_opposite_side() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+
+	assert_eq(player.get_current_cell(), dungeon_level.get_start_cell())
+	assert_true(dungeon_level.is_map_edge_cell(player.get_current_cell()))
+	assert_eq(dungeon_level.monster_spawn_cells.size(), dungeon_level.enemies.size())
+	for enemy: DungeonEnemy in dungeon_level.enemies:
+		assert_true(
+			dungeon_level.is_cell_on_side(
+				enemy.get_current_cell(),
+				dungeon_level.get_monster_spawn_side(),
+			)
+		)
 
 
 func test_main_scene_binds_the_ten_heart_player_health_to_the_hud() -> void:

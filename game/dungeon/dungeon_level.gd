@@ -1,6 +1,8 @@
 class_name DungeonLevel
 extends Node2D
 
+enum MapSide { LEFT, RIGHT, TOP, BOTTOM }
+
 signal dungeon_generated(start_cell: Vector2i, exit_cell: Vector2i)
 signal item_collected(item_name: String, cell: Vector2i)
 signal combat_event(message: String)
@@ -21,6 +23,7 @@ const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shar
 const ITEM_COUNT: int = 3
 const ANCIENT_COIN_COUNT: int = 24
 const HIRELING_COST: int = 5
+const MONSTER_COUNT: int = 12
 const WEAPON_DEFINITIONS: Array[Dictionary] = [
 	{"name": "Rusty Sword", "damage": 2},
 	{"name": "Bone Axe", "damage": 3},
@@ -34,6 +37,9 @@ const VENDOR_ROOM_INDEX: int = 1
 var tiles: Array = []
 var start_cell: Vector2i = Vector2i.ZERO
 var exit_cell: Vector2i = Vector2i.ZERO
+var start_side: int = MapSide.LEFT
+var monster_spawn_side: int = MapSide.RIGHT
+var monster_spawn_cells: Array[Vector2i] = []
 var vendor_room: Rect2i = Rect2i()
 var vendor_cell: Vector2i = Vector2i.ZERO
 var vendor: DungeonVendor = null
@@ -86,6 +92,7 @@ func generate() -> void:
 	tiles.clear()
 	visible_cells.clear()
 	known_cells.clear()
+	monster_spawn_cells.clear()
 
 	for y in range(GRID_HEIGHT):
 		var row: Array[int] = []
@@ -93,13 +100,23 @@ func generate() -> void:
 			row.append(WALL)
 		tiles.append(row)
 
+	start_side = _random.randi_range(MapSide.LEFT, MapSide.BOTTOM)
+	monster_spawn_side = _get_opposite_side(start_side)
+
 	var rooms: Array[Rect2i] = []
-	for room_index in range(ROOM_COUNT):
-		var room_width: int = _random.randi_range(3, 6)
-		var room_height: int = _random.randi_range(3, 5)
-		var room_x: int = _random.randi_range(1, GRID_WIDTH - room_width - 1)
-		var room_y: int = _random.randi_range(1, GRID_HEIGHT - room_height - 1)
-		var room: Rect2i = Rect2i(room_x, room_y, room_width, room_height)
+	var start_room: Rect2i = _create_edge_room(start_side)
+	rooms.append(start_room)
+	_carve_room(start_room)
+	for room_index in range(1, ROOM_COUNT):
+		var room: Rect2i
+		if room_index == ROOM_COUNT - 1:
+			room = _create_edge_room(monster_spawn_side)
+		else:
+			var room_width: int = _random.randi_range(3, 6)
+			var room_height: int = _random.randi_range(3, 5)
+			var room_x: int = _random.randi_range(1, GRID_WIDTH - room_width - 1)
+			var room_y: int = _random.randi_range(1, GRID_HEIGHT - room_height - 1)
+			room = Rect2i(room_x, room_y, room_width, room_height)
 		rooms.append(room)
 		_carve_room(room)
 
@@ -108,10 +125,11 @@ func generate() -> void:
 			var current_center: Vector2i = room.get_center()
 			_carve_corridor(previous_center, current_center)
 
-	start_cell = rooms[0].get_center()
+	start_cell = _get_edge_cell(start_room, start_side)
 	exit_cell = rooms[rooms.size() - 1].get_center()
 	vendor_room = rooms[mini(VENDOR_ROOM_INDEX, rooms.size() - 1)]
 	vendor_cell = _find_vendor_cell(vendor_room)
+	monster_spawn_cells = _reserve_monster_spawn_cells()
 	_spawn_vendor()
 	_spawn_hireling()
 	_spawn_items()
@@ -162,6 +180,36 @@ func get_start_cell() -> Vector2i:
 
 func get_exit_cell() -> Vector2i:
 	return exit_cell
+
+
+func get_start_side() -> int:
+	return start_side
+
+
+func get_monster_spawn_side() -> int:
+	return monster_spawn_side
+
+
+func is_map_edge_cell(cell: Vector2i) -> bool:
+	return (
+		cell.x == 0
+		or cell.x == GRID_WIDTH - 1
+		or cell.y == 0
+		or cell.y == GRID_HEIGHT - 1
+	)
+
+
+func is_cell_on_side(cell: Vector2i, side: int) -> bool:
+	match side:
+		MapSide.LEFT:
+			return cell.x < GRID_WIDTH / 2
+		MapSide.RIGHT:
+			return cell.x >= GRID_WIDTH / 2
+		MapSide.TOP:
+			return cell.y < GRID_HEIGHT / 2
+		MapSide.BOTTOM:
+			return cell.y >= GRID_HEIGHT / 2
+	return false
 
 
 func get_vendor() -> DungeonVendor:
@@ -445,6 +493,82 @@ func _carve_vertical(from_y: int, to_y: int, x: int) -> void:
 		tiles[y][x] = FLOOR
 
 
+func _create_edge_room(side: int) -> Rect2i:
+	var room_width: int = _random.randi_range(4, 6)
+	var room_height: int = _random.randi_range(4, 5)
+	var room_position: Vector2i = Vector2i.ZERO
+	match side:
+		MapSide.LEFT:
+			room_position = Vector2i(
+				0,
+				_random.randi_range(1, GRID_HEIGHT - room_height - 1),
+			)
+		MapSide.RIGHT:
+			room_position = Vector2i(
+				GRID_WIDTH - room_width,
+				_random.randi_range(1, GRID_HEIGHT - room_height - 1),
+			)
+		MapSide.TOP:
+			room_position = Vector2i(
+				_random.randi_range(1, GRID_WIDTH - room_width - 1),
+				0,
+			)
+		MapSide.BOTTOM:
+			room_position = Vector2i(
+				_random.randi_range(1, GRID_WIDTH - room_width - 1),
+				GRID_HEIGHT - room_height,
+			)
+	return Rect2i(room_position, Vector2i(room_width, room_height))
+
+
+func _get_edge_cell(room: Rect2i, side: int) -> Vector2i:
+	var room_center: Vector2i = room.get_center()
+	match side:
+		MapSide.LEFT:
+			return Vector2i(room.position.x, room_center.y)
+		MapSide.RIGHT:
+			return Vector2i(room.end.x - 1, room_center.y)
+		MapSide.TOP:
+			return Vector2i(room_center.x, room.position.y)
+		MapSide.BOTTOM:
+			return Vector2i(room_center.x, room.end.y - 1)
+	return room_center
+
+
+func _get_opposite_side(side: int) -> int:
+	match side:
+		MapSide.LEFT:
+			return MapSide.RIGHT
+		MapSide.RIGHT:
+			return MapSide.LEFT
+		MapSide.TOP:
+			return MapSide.BOTTOM
+		MapSide.BOTTOM:
+			return MapSide.TOP
+	return MapSide.RIGHT
+
+
+func _reserve_monster_spawn_cells() -> Array[Vector2i]:
+	var available_cells: Array[Vector2i] = []
+	for y: int in range(GRID_HEIGHT):
+		for x: int in range(GRID_WIDTH):
+			var cell: Vector2i = Vector2i(x, y)
+			if (
+				is_walkable(cell)
+				and is_cell_on_side(cell, monster_spawn_side)
+				and cell != start_cell
+				and cell != exit_cell
+				and not vendor_room.has_point(cell)
+			):
+				available_cells.append(cell)
+
+	var reserved_cells: Array[Vector2i] = []
+	var reservation_count: int = mini(MONSTER_COUNT, available_cells.size())
+	for _monster_index: int in range(reservation_count):
+		reserved_cells.append(_take_random_candidate(available_cells))
+	return reserved_cells
+
+
 func _spawn_items() -> void:
 	clear_pickups()
 
@@ -457,6 +581,7 @@ func _spawn_items() -> void:
 				and cell != start_cell
 				and cell != exit_cell
 				and cell != hireling_cell
+				and not monster_spawn_cells.has(cell)
 				and not vendor_room.has_point(cell)
 			):
 				candidate_cells.append(cell)
@@ -487,20 +612,18 @@ func _spawn_enemies() -> void:
 		return
 
 	var candidate_cells: Array[Vector2i] = []
-	for y in range(GRID_HEIGHT):
-		for x in range(GRID_WIDTH):
-			var cell: Vector2i = Vector2i(x, y)
-			if (
-				not is_walkable(cell)
-				or cell == start_cell
-				or cell == exit_cell
-				or cell == hireling_cell
-				or vendor_room.has_point(cell)
-			):
-				continue
-			if get_entity_at(cell) != null or _has_pickup_at(cell):
-				continue
-			candidate_cells.append(cell)
+	for cell: Vector2i in monster_spawn_cells:
+		if (
+			not is_walkable(cell)
+			or cell == start_cell
+			or cell == exit_cell
+			or cell == hireling_cell
+			or vendor_room.has_point(cell)
+		):
+			continue
+		if get_entity_at(cell) != null or _has_pickup_at(cell):
+			continue
+		candidate_cells.append(cell)
 
 	if candidate_cells.is_empty():
 		return
@@ -519,6 +642,27 @@ func _spawn_enemies() -> void:
 	if not candidate_cells.is_empty():
 		var ghost_cell: Vector2i = _take_random_candidate(candidate_cells)
 		spawn_enemy(GhostEnemy.new(), ghost_cell)
+	if not candidate_cells.is_empty():
+		var goblin_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(GoblinEnemy.new(), goblin_cell)
+	if not candidate_cells.is_empty():
+		var orc_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(OrcEnemy.new(), orc_cell)
+	if not candidate_cells.is_empty():
+		var slime_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(SlimeEnemy.new(), slime_cell)
+	if not candidate_cells.is_empty():
+		var mummy_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(MummyEnemy.new(), mummy_cell)
+	if not candidate_cells.is_empty():
+		var wraith_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(WraithEnemy.new(), wraith_cell)
+	if not candidate_cells.is_empty():
+		var golem_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(GolemEnemy.new(), golem_cell)
+	if not candidate_cells.is_empty():
+		var lich_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(LichEnemy.new(), lich_cell)
 
 
 func _clear_enemies() -> void:
@@ -565,6 +709,7 @@ func _spawn_hireling() -> void:
 				is_walkable(cell)
 				and cell != start_cell
 				and cell != exit_cell
+				and not monster_spawn_cells.has(cell)
 				and not vendor_room.has_point(cell)
 			):
 				candidate_cells.append(cell)

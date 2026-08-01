@@ -56,6 +56,65 @@ func test_vampire_spider_and_ghost_have_their_requested_combat_stats() -> void:
 	assert_eq(ghost.speed, player.speed)
 
 
+func test_new_monsters_have_distinct_combat_stats() -> void:
+	var goblin: GoblinEnemy = GoblinEnemy.new()
+	var orc: OrcEnemy = OrcEnemy.new()
+	var slime: SlimeEnemy = SlimeEnemy.new()
+	var mummy: MummyEnemy = MummyEnemy.new()
+	var wraith: WraithEnemy = WraithEnemy.new()
+	var golem: GolemEnemy = GolemEnemy.new()
+	var lich: LichEnemy = LichEnemy.new()
+	add_child_autofree(goblin)
+	add_child_autofree(orc)
+	add_child_autofree(slime)
+	add_child_autofree(mummy)
+	add_child_autofree(wraith)
+	add_child_autofree(golem)
+	add_child_autofree(lich)
+
+	assert_eq(goblin.get_display_name(), "Goblin")
+	assert_eq(goblin.health.max_hearts, 6)
+	assert_eq(goblin.attack_damage, 1)
+	assert_eq(goblin.hit_chance, 0.80)
+	assert_eq(goblin.speed, 1.5)
+
+	assert_eq(orc.get_display_name(), "Orc")
+	assert_eq(orc.health.max_hearts, 14)
+	assert_eq(orc.attack_damage, 3)
+	assert_eq(orc.hit_chance, 0.60)
+	assert_eq(orc.speed, 0.65)
+
+	assert_eq(slime.get_display_name(), "Slime")
+	assert_eq(slime.health.max_hearts, 4)
+	assert_eq(slime.attack_damage, 1)
+	assert_eq(slime.hit_chance, 0.90)
+	assert_eq(slime.speed, 1.25)
+
+	assert_eq(mummy.get_display_name(), "Mummy")
+	assert_eq(mummy.health.max_hearts, 12)
+	assert_eq(mummy.attack_damage, 2)
+	assert_eq(mummy.hit_chance, 0.65)
+	assert_eq(mummy.speed, 0.75)
+
+	assert_eq(wraith.get_display_name(), "Wraith")
+	assert_eq(wraith.health.max_hearts, 7)
+	assert_eq(wraith.attack_damage, 2)
+	assert_eq(wraith.hit_chance, 0.65)
+	assert_eq(wraith.speed, 1.5)
+
+	assert_eq(golem.get_display_name(), "Golem")
+	assert_eq(golem.health.max_hearts, 16)
+	assert_eq(golem.attack_damage, 3)
+	assert_eq(golem.hit_chance, 0.75)
+	assert_eq(golem.speed, 0.5)
+
+	assert_eq(lich.get_display_name(), "Lich")
+	assert_eq(lich.health.max_hearts, 8)
+	assert_eq(lich.attack_damage, 3)
+	assert_eq(lich.hit_chance, 0.60)
+	assert_eq(lich.speed, 1.0)
+
+
 func test_enemies_wait_for_a_player_move_before_taking_a_turn() -> void:
 	var ghost: GhostEnemy = GhostEnemy.new()
 	ghost.hit_chance = 1.0
