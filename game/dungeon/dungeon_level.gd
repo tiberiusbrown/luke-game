@@ -6,11 +6,12 @@ signal item_collected(item_name: String, cell: Vector2i)
 signal combat_event(message: String)
 signal vendor_interaction_requested(vendor: DungeonVendor)
 
-const GRID_WIDTH: int = 25
-const GRID_HEIGHT: int = 17
+const GRID_WIDTH: int = 40
+const GRID_HEIGHT: int = 28
 const TILE_SIZE: int = 32
 const LIGHT_DIAMETER: int = 5
 const LIGHT_RADIUS: int = 2
+const ROOM_COUNT: int = 16
 const WALL: int = 0
 const FLOOR: int = 1
 const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shard"]
@@ -68,7 +69,7 @@ func generate() -> void:
 		tiles.append(row)
 
 	var rooms: Array[Rect2i] = []
-	for room_index in range(8):
+	for room_index in range(ROOM_COUNT):
 		var room_width: int = _random.randi_range(3, 6)
 		var room_height: int = _random.randi_range(3, 5)
 		var room_x: int = _random.randi_range(1, GRID_WIDTH - room_width - 1)
