@@ -107,13 +107,13 @@ func test_moving_onto_a_weapon_pickup_does_not_wield_it() -> void:
 	await get_tree().create_timer(DungeonPlayer.MOVE_DURATION + 0.05).timeout
 
 	assert_null(player.inventory.get_equipped_weapon())
-	assert_eq(player.get_attack_damage(), 0)
+	assert_eq(player.get_attack_damage(), DungeonPlayer.BASE_ATTACK_DAMAGE)
 	assert_eq(player.inventory.get_weapon_attack_damage("Bone Axe"), 3)
 	assert_eq(dungeon_level.pickups.size(), 0)
 
 	assert_true(player.inventory.wield_weapon(weapon))
 	assert_eq(player.inventory.get_equipped_weapon(), weapon)
-	assert_eq(player.get_attack_damage(), 3)
+	assert_eq(player.get_attack_damage(), DungeonPlayer.BASE_ATTACK_DAMAGE + 3)
 
 
 func _set_up_test_map() -> void:

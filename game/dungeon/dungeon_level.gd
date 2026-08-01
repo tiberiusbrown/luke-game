@@ -3,6 +3,7 @@ extends Node2D
 
 signal dungeon_generated(start_cell: Vector2i, exit_cell: Vector2i)
 signal item_collected(item_name: String, cell: Vector2i)
+signal combat_event(message: String)
 
 const GRID_WIDTH: int = 25
 const GRID_HEIGHT: int = 17
@@ -18,6 +19,13 @@ var tiles: Array = []
 var start_cell: Vector2i = Vector2i.ZERO
 var exit_cell: Vector2i = Vector2i.ZERO
 var pickups: Array[ItemPickup] = []
+var entities: Array[DungeonEntity] = []
+var enemies: Array[DungeonEnemy] = []
+var turn_scheduler: TurnScheduler = null
+
+var _player_action_in_progress: bool = false
+var _enemy_action_queue: Array[DungeonEnemy] = []
+var _active_enemy: DungeonEnemy = null
 
 var _random: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -26,7 +34,17 @@ func _enter_tree() -> void:
 	generate()
 
 
+func _ready() -> void:
+	turn_scheduler = TurnScheduler.new()
+	for child: Node in get_children():
+		var entity: DungeonEntity = child as DungeonEntity
+		if entity != null:
+			register_entity(entity)
+	_spawn_enemies()
+
+
 func generate() -> void:
+	_clear_enemies()
 	_random.randomize()
 	tiles.clear()
 
@@ -56,6 +74,8 @@ func generate() -> void:
 	_spawn_items()
 	queue_redraw()
 	dungeon_generated.emit(start_cell, exit_cell)
+	if is_node_ready():
+		_spawn_enemies()
 
 
 func is_walkable(cell: Vector2i) -> bool:
@@ -98,6 +118,100 @@ func get_start_cell() -> Vector2i:
 
 func get_exit_cell() -> Vector2i:
 	return exit_cell
+
+
+func register_entity(entity: DungeonEntity) -> void:
+	if entity == null or entities.has(entity):
+		return
+
+	entities.append(entity)
+	if turn_scheduler != null:
+		turn_scheduler.add_entity(entity)
+	if not entity.action_finished.is_connected(_on_entity_action_finished):
+		entity.action_finished.connect(_on_entity_action_finished)
+	if not entity.defeated.is_connected(_on_entity_defeated):
+		entity.defeated.connect(_on_entity_defeated)
+
+
+func unregister_entity(entity: DungeonEntity) -> void:
+	if entity == null:
+		return
+
+	entities.erase(entity)
+	if turn_scheduler != null:
+		turn_scheduler.remove_entity(entity)
+	if entity is DungeonEnemy:
+		enemies.erase(entity as DungeonEnemy)
+
+
+func get_entity_at(cell: Vector2i) -> DungeonEntity:
+	for index: int in range(entities.size() - 1, -1, -1):
+		var entity: DungeonEntity = entities[index]
+		if not is_instance_valid(entity):
+			entities.remove_at(index)
+			continue
+		if entity.health.is_depleted():
+			continue
+		if entity.current_cell == cell:
+			return entity
+	return null
+
+
+func get_player() -> DungeonPlayer:
+	for entity: DungeonEntity in entities:
+		if entity is DungeonPlayer:
+			return entity as DungeonPlayer
+	return get_node_or_null("Player") as DungeonPlayer
+
+
+func begin_player_action(player: DungeonEntity) -> bool:
+	if player == null or not player.is_player_entity():
+		return false
+	if _player_action_in_progress or _active_enemy != null or not _enemy_action_queue.is_empty():
+		return false
+
+	_player_action_in_progress = true
+	if turn_scheduler != null and not turn_scheduler.has_entity(player):
+		turn_scheduler.add_entity(player)
+	return true
+
+
+func spawn_enemy(enemy: DungeonEnemy, cell: Vector2i) -> DungeonEnemy:
+	if enemy == null or not is_walkable(cell):
+		return null
+	if get_entity_at(cell) != null or _has_pickup_at(cell):
+		return null
+
+	enemy.setup(self, cell)
+	add_child(enemy)
+	enemies.append(enemy)
+	return enemy
+
+
+func spawn_hit_effect(cell: Vector2i, damage_hearts: int, effect_color: Color) -> void:
+	var effect: HitEffect = HitEffect.new()
+	effect.setup(damage_hearts, effect_color)
+	effect.position = cell_to_world(cell)
+	add_child(effect)
+
+
+func report_attack(attacker: DungeonEntity, target: DungeonEntity, hit: bool, damage_hearts: int) -> void:
+	if attacker == null or target == null:
+		return
+
+	var message: String
+	if hit and damage_hearts > 0:
+		message = "%s hits %s for %d heart%s" % [
+			attacker.get_display_name(),
+			target.get_display_name(),
+			damage_hearts,
+			"" if damage_hearts == 1 else "s",
+		]
+		if target.health.is_depleted():
+			message += " and defeats them"
+	else:
+		message = "%s misses %s" % [attacker.get_display_name(), target.get_display_name()]
+	combat_event.emit(message)
 
 
 func spawn_pickup(item_name: String, cell: Vector2i) -> ItemPickup:
@@ -205,6 +319,87 @@ func _spawn_items() -> void:
 			WEAPON_DAMAGE[weapon_index],
 		)
 		spawn_weapon(weapon, weapon_cell)
+
+
+func _spawn_enemies() -> void:
+	if not enemies.is_empty():
+		return
+
+	var candidate_cells: Array[Vector2i] = []
+	for y in range(GRID_HEIGHT):
+		for x in range(GRID_WIDTH):
+			var cell: Vector2i = Vector2i(x, y)
+			if not is_walkable(cell) or cell == start_cell or cell == exit_cell:
+				continue
+			if get_entity_at(cell) != null or _has_pickup_at(cell):
+				continue
+			candidate_cells.append(cell)
+
+	if candidate_cells.is_empty():
+		return
+
+	var zombie_cell: Vector2i = _take_random_candidate(candidate_cells)
+	spawn_enemy(ZombieEnemy.new(), zombie_cell)
+	if not candidate_cells.is_empty():
+		var skeleton_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(SkeletonEnemy.new(), skeleton_cell)
+
+
+func _clear_enemies() -> void:
+	_enemy_action_queue.clear()
+	_active_enemy = null
+	for enemy: DungeonEnemy in enemies.duplicate():
+		if is_instance_valid(enemy):
+			unregister_entity(enemy)
+			enemy.queue_free()
+	enemies.clear()
+
+
+func _has_pickup_at(cell: Vector2i) -> bool:
+	for pickup: ItemPickup in pickups:
+		if is_instance_valid(pickup) and pickup.cell == cell:
+			return true
+	return false
+
+
+func _on_entity_action_finished(entity: DungeonEntity) -> void:
+	if entity == get_player() and _player_action_in_progress:
+		_player_action_in_progress = false
+		if turn_scheduler == null:
+			return
+		var due_entities: Array[DungeonEntity] = turn_scheduler.advance_after_action(entity)
+		_enemy_action_queue.clear()
+		for due_entity: DungeonEntity in due_entities:
+			if due_entity is DungeonEnemy:
+				_enemy_action_queue.append(due_entity as DungeonEnemy)
+		_run_next_enemy_action()
+		return
+
+	if entity == _active_enemy:
+		_active_enemy = null
+		_run_next_enemy_action()
+
+
+func _run_next_enemy_action() -> void:
+	if _active_enemy != null:
+		return
+
+	while not _enemy_action_queue.is_empty():
+		var enemy: DungeonEnemy = _enemy_action_queue.pop_front()
+		if not is_instance_valid(enemy) or enemy.health.is_depleted() or not entities.has(enemy):
+			continue
+		_active_enemy = enemy
+		if enemy.take_turn():
+			return
+		_active_enemy = null
+
+
+func _on_entity_defeated(entity: DungeonEntity) -> void:
+	if entity == get_player():
+		_enemy_action_queue.clear()
+		_active_enemy = null
+	elif entity is DungeonEnemy:
+		unregister_entity(entity)
 
 
 func _take_random_candidate(candidate_cells: Array[Vector2i]) -> Vector2i:

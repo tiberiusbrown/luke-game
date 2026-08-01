@@ -36,6 +36,18 @@ func test_main_scene_contains_weapon_pickups() -> void:
 	assert_true(has_weapon_pickup)
 
 
+func test_main_scene_spawns_one_zombie_and_one_skeleton_without_health_ui() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var enemy_types: Array[String] = []
+	for enemy: DungeonEnemy in dungeon_level.enemies:
+		enemy_types.append(enemy.enemy_type)
+
+	assert_eq(dungeon_level.enemies.size(), 2)
+	assert_true(enemy_types.has("Zombie"))
+	assert_true(enemy_types.has("Skeleton"))
+	assert_eq(main_scene.get_node("%HealthBar").get_parent().name, "Hud")
+
+
 func test_main_scene_binds_the_ten_heart_player_health_to_the_hud() -> void:
 	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
 	var health_bar: HeartHealthBar = main_scene.get_node("%HealthBar") as HeartHealthBar

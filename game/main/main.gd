@@ -27,6 +27,7 @@ func _ready() -> void:
 	dungeon_level.item_collected.connect(_on_item_collected)
 	player.inventory.weapon_wielded.connect(_on_weapon_wielded)
 	player.inventory.weapon_unwielded.connect(_on_weapon_unwielded)
+	dungeon_level.combat_event.connect(_on_combat_event)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	health_bar.bind_health(player.health)
 	inventory_panel.refresh(player.inventory)
@@ -159,6 +160,10 @@ func _on_weapon_wielded(weapon: WeaponData) -> void:
 
 func _on_weapon_unwielded(weapon: WeaponData) -> void:
 	status_log.add_message("You unwield the %s" % weapon.weapon_name)
+
+
+func _on_combat_event(message: String) -> void:
+	status_log.add_message(message)
 
 
 func _is_key(key_event: InputEventKey, key_code: int) -> bool:

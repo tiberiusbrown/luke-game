@@ -1,26 +1,31 @@
 class_name DungeonPlayer
-extends CharacterBody2D
+extends DungeonEntity
 
-const MOVE_DURATION: float = 0.14
 const MAX_HEARTS: int = 10
+const BASE_ATTACK_DAMAGE: int = 1
+const HIT_CHANCE: float = 0.80
+const SPEED: float = 1.0
 
-var dungeon_level: DungeonLevel
 var inventory: PlayerInventory = PlayerInventory.new()
-var health: HeartHealth = HeartHealth.new(MAX_HEARTS)
-var current_cell: Vector2i = Vector2i.ZERO
-var is_moving: bool = false
-var _move_tween: Tween
+var hit_chance: float = HIT_CHANCE
+
+
+func _init() -> void:
+	super._init()
+	health = HeartHealth.new(MAX_HEARTS)
+	speed = SPEED
 
 
 func _ready() -> void:
-	z_index = 2
-	dungeon_level = get_parent() as DungeonLevel
+	super._ready()
 	if dungeon_level == null:
 		return
 
 	current_cell = dungeon_level.get_start_cell()
 	position = dungeon_level.cell_to_world(current_cell)
 	velocity = Vector2.ZERO
+	if not dungeon_level.entities.has(self):
+		dungeon_level.register_entity(self)
 	queue_redraw()
 
 
@@ -34,59 +39,35 @@ func _unhandled_input(event: InputEvent) -> void:
 		try_move(direction)
 
 
-func try_move(direction: Vector2i) -> bool:
-	if dungeon_level == null or is_moving or health.is_depleted():
-		return false
-	if not _is_cardinal_direction(direction):
-		return false
+func get_attack_damage() -> int:
+	var weapon: WeaponData = inventory.get_equipped_weapon()
+	if weapon == null:
+		return BASE_ATTACK_DAMAGE
+	return BASE_ATTACK_DAMAGE + weapon.attack_damage
 
-	var target_cell: Vector2i = current_cell + direction
-	if not dungeon_level.is_walkable(target_cell):
-		return false
 
-	var target_position: Vector2 = dungeon_level.cell_to_world(target_cell)
-	current_cell = target_cell
-	is_moving = true
-	velocity = Vector2.ZERO
+func get_hit_chance() -> float:
+	return hit_chance
 
-	if is_instance_valid(_move_tween):
-		_move_tween.kill()
-	_move_tween = create_tween()
-	_move_tween.set_trans(Tween.TRANS_SINE)
-	_move_tween.set_ease(Tween.EASE_OUT)
-	_move_tween.tween_property(self, "position", target_position, MOVE_DURATION)
-	_move_tween.tween_callback(_finish_move)
+
+func get_display_name() -> String:
+	return "You"
+
+
+func is_player_entity() -> bool:
 	return true
 
 
-func get_current_cell() -> Vector2i:
-	return current_cell
-
-
-func take_damage(damage_hearts: int) -> int:
-	var damage_dealt: int = health.take_damage(damage_hearts)
-	if health.is_depleted():
-		velocity = Vector2.ZERO
-	return damage_dealt
+func get_attack_color() -> Color:
+	return Color("#68a7d8")
 
 
 func heal(healing_hearts: int) -> int:
 	return health.heal(healing_hearts)
 
 
-func get_attack_damage() -> int:
-	var weapon: WeaponData = inventory.get_equipped_weapon()
-	if weapon == null:
-		return 0
-	return weapon.attack_damage
-
-
-func _finish_move() -> void:
-	if dungeon_level != null:
-		position = dungeon_level.cell_to_world(current_cell)
-		_collect_item_at_current_cell()
-	is_moving = false
-	velocity = Vector2.ZERO
+func _after_move() -> void:
+	_collect_item_at_current_cell()
 
 
 func _collect_item_at_current_cell() -> void:
@@ -118,10 +99,6 @@ func _get_direction_for_key(key_event: InputEventKey) -> Vector2i:
 	if key_event.keycode == KEY_S or key_event.physical_keycode == KEY_S:
 		return Vector2i(0, 1)
 	return Vector2i.ZERO
-
-
-func _is_cardinal_direction(direction: Vector2i) -> bool:
-	return abs(direction.x) + abs(direction.y) == 1
 
 
 func _draw() -> void:
