@@ -4,12 +4,14 @@ extends CharacterBody2D
 const MOVE_DURATION: float = 0.14
 
 var dungeon_level: DungeonLevel
+var inventory: PlayerInventory = PlayerInventory.new()
 var current_cell: Vector2i = Vector2i.ZERO
 var is_moving: bool = false
 var _move_tween: Tween
 
 
 func _ready() -> void:
+	z_index = 2
 	dungeon_level = get_parent() as DungeonLevel
 	if dungeon_level == null:
 		return
@@ -62,8 +64,18 @@ func get_current_cell() -> Vector2i:
 func _finish_move() -> void:
 	if dungeon_level != null:
 		position = dungeon_level.cell_to_world(current_cell)
+		_collect_item_at_current_cell()
 	is_moving = false
 	velocity = Vector2.ZERO
+
+
+func _collect_item_at_current_cell() -> void:
+	if dungeon_level == null:
+		return
+
+	var item_name: String = dungeon_level.collect_item_at(current_cell)
+	if not item_name.is_empty():
+		inventory.add_item(item_name)
 
 
 func _get_direction_for_key(key_event: InputEventKey) -> Vector2i:

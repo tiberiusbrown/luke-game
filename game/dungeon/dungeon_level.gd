@@ -2,16 +2,20 @@ class_name DungeonLevel
 extends Node2D
 
 signal dungeon_generated(start_cell: Vector2i, exit_cell: Vector2i)
+signal item_collected(item_name: String, cell: Vector2i)
 
 const GRID_WIDTH: int = 25
 const GRID_HEIGHT: int = 17
 const TILE_SIZE: int = 32
 const WALL: int = 0
 const FLOOR: int = 1
+const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shard"]
+const ITEM_COUNT: int = 3
 
 var tiles: Array = []
 var start_cell: Vector2i = Vector2i.ZERO
 var exit_cell: Vector2i = Vector2i.ZERO
+var pickups: Array[ItemPickup] = []
 
 var _random: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -47,6 +51,7 @@ func generate() -> void:
 
 	start_cell = rooms[0].get_center()
 	exit_cell = rooms[rooms.size() - 1].get_center()
+	_spawn_items()
 	queue_redraw()
 	dungeon_generated.emit(start_cell, exit_cell)
 
@@ -93,6 +98,41 @@ func get_exit_cell() -> Vector2i:
 	return exit_cell
 
 
+func spawn_pickup(item_name: String, cell: Vector2i) -> ItemPickup:
+	if not is_walkable(cell):
+		return null
+
+	var pickup: ItemPickup = ItemPickup.new()
+	pickup.setup(item_name, cell)
+	add_child(pickup)
+	pickups.append(pickup)
+	return pickup
+
+
+func collect_item_at(cell: Vector2i) -> String:
+	for index: int in range(pickups.size() - 1, -1, -1):
+		var pickup: ItemPickup = pickups[index]
+		if not is_instance_valid(pickup):
+			pickups.remove_at(index)
+			continue
+		if pickup.cell != cell:
+			continue
+
+		var item_name: String = pickup.item_name
+		pickups.remove_at(index)
+		pickup.queue_free()
+		item_collected.emit(item_name, cell)
+		return item_name
+	return ""
+
+
+func clear_pickups() -> void:
+	for pickup: ItemPickup in pickups:
+		if is_instance_valid(pickup):
+			pickup.queue_free()
+	pickups.clear()
+
+
 func _carve_room(room: Rect2i) -> void:
 	for y in range(room.position.y, room.end.y):
 		for x in range(room.position.x, room.end.x):
@@ -121,6 +161,23 @@ func _carve_vertical(from_y: int, to_y: int, x: int) -> void:
 	var end_y: int = maxi(from_y, to_y)
 	for y in range(start_y, end_y + 1):
 		tiles[y][x] = FLOOR
+
+
+func _spawn_items() -> void:
+	clear_pickups()
+
+	var candidate_cells: Array[Vector2i] = []
+	for y in range(GRID_HEIGHT):
+		for x in range(GRID_WIDTH):
+			var cell: Vector2i = Vector2i(x, y)
+			if is_walkable(cell) and cell != start_cell and cell != exit_cell:
+				candidate_cells.append(cell)
+
+	var item_count: int = mini(ITEM_COUNT, candidate_cells.size())
+	for item_index in range(item_count):
+		var candidate_index: int = _random.randi_range(0, candidate_cells.size() - 1)
+		var cell: Vector2i = candidate_cells.pop_at(candidate_index)
+		spawn_pickup(ITEM_NAMES[item_index % ITEM_NAMES.size()], cell)
 
 
 func _draw() -> void:

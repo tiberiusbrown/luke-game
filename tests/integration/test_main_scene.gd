@@ -22,4 +22,17 @@ func test_main_scene_contains_generated_dungeon() -> void:
 
 	assert_not_null(dungeon_level)
 	assert_true(dungeon_level.is_walkable(dungeon_level.get_start_cell()))
+	assert_gt(dungeon_level.pickups.size(), 0)
 
+
+func test_i_toggles_inventory_panel() -> void:
+	var inventory_panel: InventoryPanel = main_scene.get_node("%InventoryPanel") as InventoryPanel
+	var key_event: InputEventKey = InputEventKey.new()
+	key_event.keycode = KEY_I
+	key_event.pressed = true
+
+	assert_false(inventory_panel.visible)
+	main_scene._unhandled_input(key_event)
+	assert_true(inventory_panel.visible)
+	main_scene._unhandled_input(key_event)
+	assert_false(inventory_panel.visible)

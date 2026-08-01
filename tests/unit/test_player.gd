@@ -62,6 +62,17 @@ func test_key_echo_does_not_start_an_extra_move() -> void:
 	assert_eq(player.get_current_cell(), Vector2i(3, 2))
 
 
+func test_moving_onto_a_pickup_adds_it_to_inventory() -> void:
+	dungeon_level.clear_pickups()
+	dungeon_level.spawn_pickup("Amber Potion", Vector2i(3, 2))
+
+	assert_true(player.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(DungeonPlayer.MOVE_DURATION + 0.05).timeout
+
+	assert_eq(player.inventory.get_item_count("Amber Potion"), 1)
+	assert_eq(dungeon_level.pickups.size(), 0)
+
+
 func _set_up_test_map() -> void:
 	dungeon_level.tiles.clear()
 	for y: int in range(DungeonLevel.GRID_HEIGHT):
