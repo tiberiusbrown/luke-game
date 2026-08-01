@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://game/main/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://game/dungeon/dungeon_level.gd" id="2_dungeon"]
@@ -22,6 +22,20 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 shadow_color = Color(0, 0, 0, 0.35)
 shadow_size = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hireling_prompt"]
+bg_color = Color(0.086, 0.071, 0.039, 0.97)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.84, 0.66, 0.37, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+shadow_color = Color(0, 0, 0, 0.4)
+shadow_size = 10
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -66,7 +80,7 @@ offset_right = 500.0
 offset_bottom = 58.0
 theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
 theme_override_font_sizes/font_size = 12
-text = "ARROWS MOVE/ATTACK  |  E TRADE  |  I PACK  |  W WIELD"
+text = "ARROWS MOVE/ATTACK  |  E INTERACT  |  I PACK  |  W WIELD"
 
 [node name="HealthLabel" type="Label" parent="Hud"]
 offset_left = 500.0
@@ -347,3 +361,63 @@ theme_override_colors/font_color = Color(0.82, 0.87, 0.94, 1)
 theme_override_font_sizes/font_size = 13
 autowrap_mode = 2
 text = "You enter the dungeon"
+
+[node name="GameOverPanel" type="Panel" parent="Hud"]
+unique_name_in_owner = true
+visible = false
+offset_right = 430.0
+offset_bottom = 220.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_inventory_panel")
+
+[node name="TitleLabel" type="Label" parent="Hud/GameOverPanel"]
+offset_left = 28.0
+offset_top = 28.0
+offset_right = 402.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.91, 0.94, 1, 1)
+theme_override_font_sizes/font_size = 28
+text = "THE DUNGEON WINS"
+horizontal_alignment = 1
+
+[node name="MessageLabel" type="Label" parent="Hud/GameOverPanel"]
+offset_left = 28.0
+offset_top = 86.0
+offset_right = 402.0
+offset_bottom = 132.0
+theme_override_colors/font_color = Color(0.82, 0.87, 0.94, 1)
+theme_override_font_sizes/font_size = 16
+text = "You and your fighter have fallen."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="HintLabel" type="Label" parent="Hud/GameOverPanel"]
+offset_left = 28.0
+offset_top = 164.0
+offset_right = 402.0
+offset_bottom = 194.0
+theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
+theme_override_font_sizes/font_size = 13
+text = "CLOSE THE GAME TO RETURN TO THE MENU"
+horizontal_alignment = 1
+
+[node name="HirelingPromptPanel" type="Panel" parent="Hud"]
+unique_name_in_owner = true
+visible = false
+offset_right = 380.0
+offset_bottom = 80.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hireling_prompt")
+
+[node name="PromptLabel" type="Label" parent="Hud/HirelingPromptPanel"]
+unique_name_in_owner = true
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 364.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.95, 0.88, 0.7, 1)
+theme_override_font_sizes/font_size = 15
+text = "PRESS E TO HIRE FIGHTER\n5 ANCIENT COINS"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2

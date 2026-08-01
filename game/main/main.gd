@@ -20,6 +20,10 @@ const POSITION_LABEL_WIDTH: float = 144.0
 @onready var wield_panel: WieldPanel = $Hud/WieldPanel
 @onready var vendor_panel: VendorPanel = $Hud/VendorPanel
 @onready var status_log: StatusLog = $Hud/StatusLog
+@onready var game_over_panel: Panel = $Hud/GameOverPanel
+@onready var game_over_message_label: Label = $Hud/GameOverPanel/MessageLabel
+@onready var hireling_prompt_panel: Panel = $Hud/HirelingPromptPanel
+@onready var hireling_prompt_label: Label = $Hud/HirelingPromptPanel/PromptLabel
 
 
 func _ready() -> void:
@@ -27,13 +31,17 @@ func _ready() -> void:
 	player.inventory.inventory_changed.connect(_on_inventory_changed)
 	dungeon_level.item_collected.connect(_on_item_collected)
 	dungeon_level.vendor_interaction_requested.connect(_on_vendor_interaction_requested)
+	dungeon_level.companion_event.connect(_on_companion_event)
+	dungeon_level.player_control_changed.connect(_on_player_control_changed)
+	dungeon_level.game_over.connect(_on_game_over)
 	player.inventory.weapon_wielded.connect(_on_weapon_wielded)
 	player.inventory.weapon_unwielded.connect(_on_weapon_unwielded)
 	dungeon_level.combat_event.connect(_on_combat_event)
 	vendor_panel.trade_completed.connect(_on_vendor_trade_completed)
 	vendor_panel.close_requested.connect(_on_vendor_panel_close_requested)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
-	health_bar.bind_health(player.health)
+	var active_player: DungeonEntity = dungeon_level.get_player()
+	health_bar.bind_health(active_player.health if active_player != null else player.health)
 	inventory_panel.refresh(player.inventory)
 	wield_panel.refresh(player.inventory)
 	status_log.add_message("You enter the dungeon")
@@ -43,6 +51,7 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	position_label.text = _get_position_text()
+	_update_hireling_notification()
 
 
 func _on_viewport_size_changed() -> void:
@@ -86,6 +95,8 @@ func _layout_ui() -> void:
 	_center_panel(inventory_panel, map_area)
 	_center_panel(wield_panel, map_area)
 	_center_panel(vendor_panel, map_area)
+	_center_panel(game_over_panel, map_area)
+	_position_hireling_prompt(map_area)
 
 	var position_left: float = maxf(
 		LAYOUT_MARGIN,
@@ -103,8 +114,21 @@ func _center_panel(panel: Control, area: Rect2) -> void:
 	panel.position = centered_position
 
 
+func _position_hireling_prompt(area: Rect2) -> void:
+	var prompt_x: float = area.position.x + (area.size.x - hireling_prompt_panel.size.x) * 0.5
+	var prompt_y: float = area.position.y + area.size.y - hireling_prompt_panel.size.y - 18.0
+	hireling_prompt_panel.position = Vector2(prompt_x, prompt_y)
+
+
+func _update_hireling_notification() -> void:
+	var notification_text: String = dungeon_level.get_hireling_notification()
+	hireling_prompt_panel.visible = not notification_text.is_empty() and not game_over_panel.visible
+	if hireling_prompt_panel.visible:
+		hireling_prompt_label.text = notification_text
+
+
 func _get_position_text() -> String:
-	var cell: Vector2i = player.get_current_cell()
+	var cell: Vector2i = _get_active_player().get_current_cell()
 	return "POSITION  %02d, %02d" % [cell.x, cell.y]
 
 
@@ -119,6 +143,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _handle_key_event(event: InputEvent) -> void:
 	var key_event: InputEventKey = event as InputEventKey
 	if key_event == null:
+		return
+	if game_over_panel.visible:
+		get_viewport().set_input_as_handled()
 		return
 
 	if vendor_panel.visible:
@@ -191,6 +218,36 @@ func _on_vendor_trade_completed(offered_name: String, received_name: String) -> 
 
 func _on_vendor_panel_close_requested() -> void:
 	vendor_panel.visible = false
+
+
+func _on_companion_event(message: String) -> void:
+	status_log.add_message(message)
+
+
+func _on_player_control_changed(
+	_previous_player: DungeonEntity,
+	current_player: DungeonEntity,
+) -> void:
+	if current_player == null:
+		return
+	health_bar.bind_health(current_player.health)
+
+
+func _on_game_over() -> void:
+	vendor_panel.visible = false
+	inventory_panel.visible = false
+	wield_panel.visible = false
+	game_over_message_label.text = (
+		"You and your fighter have fallen."
+		if dungeon_level.is_hireling_hired()
+		else "You have fallen."
+	)
+	game_over_panel.visible = true
+
+
+func _get_active_player() -> DungeonEntity:
+	var active_player: DungeonEntity = dungeon_level.get_player()
+	return active_player if active_player != null else player
 
 
 func _is_key(key_event: InputEventKey, key_code: int) -> bool:

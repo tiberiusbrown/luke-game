@@ -27,3 +27,12 @@ func test_generated_dungeon_spawns_each_weapon_definition_as_a_pickup() -> void:
 	assert_eq(weapon_names.size(), DungeonLevel.WEAPON_DEFINITIONS.size())
 	for weapon_definition: Dictionary in DungeonLevel.WEAPON_DEFINITIONS:
 		assert_true(weapon_names.has(str(weapon_definition["name"])))
+
+
+func test_generated_dungeon_spawns_many_ancient_coins() -> void:
+	var coin_count: int = 0
+	for pickup: ItemPickup in dungeon_level.pickups:
+		if pickup.item_name == "Ancient Coin":
+			coin_count += 1
+
+	assert_gte(coin_count, DungeonLevel.ANCIENT_COIN_COUNT)

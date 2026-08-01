@@ -8,6 +8,7 @@ const SPEED: float = 1.0
 
 var inventory: PlayerInventory = PlayerInventory.new()
 var hit_chance: float = HIT_CHANCE
+var is_controlled: bool = true
 
 
 func _init() -> void:
@@ -21,6 +22,9 @@ func _ready() -> void:
 	if dungeon_level == null:
 		return
 
+	if dungeon_level.get_player() == null:
+		dungeon_level.set_initial_player(self)
+
 	current_cell = dungeon_level.get_start_cell()
 	position = dungeon_level.cell_to_world(current_cell)
 	velocity = Vector2.ZERO
@@ -33,17 +37,25 @@ func _unhandled_input(event: InputEvent) -> void:
 	var key_event: InputEventKey = event as InputEventKey
 	if key_event == null or not key_event.pressed or key_event.echo:
 		return
+	if dungeon_level == null:
+		return
+
+	var active_player: DungeonEntity = dungeon_level.get_player()
+	if active_player == null:
+		return
 
 	if _is_key(key_event, KEY_E):
-		if dungeon_level != null and dungeon_level.interact_with_vendor(current_cell):
+		if dungeon_level.interact_with_vendor(active_player.current_cell):
+			get_viewport().set_input_as_handled()
+		elif dungeon_level.interact_with_hireling(active_player.current_cell, inventory):
 			get_viewport().set_input_as_handled()
 		return
 
 	var direction: Vector2i = _get_direction_for_key(key_event)
 	if direction != Vector2i.ZERO:
-		if dungeon_level != null and dungeon_level.get_vendor_at(current_cell + direction) != null:
+		if dungeon_level.get_vendor_at(active_player.current_cell + direction) != null:
 			return
-		try_move(direction)
+		active_player.try_move(direction)
 
 
 func get_attack_damage() -> int:
@@ -61,12 +73,21 @@ func get_display_name() -> String:
 	return "You"
 
 
-func is_player_entity() -> bool:
-	return true
-
-
 func get_attack_color() -> Color:
 	return Color("#68a7d8")
+
+
+func set_controlled(controlled: bool) -> void:
+	is_controlled = controlled
+	queue_redraw()
+
+
+func is_player_entity() -> bool:
+	return is_controlled
+
+
+func _can_attack_target(target: DungeonEntity) -> bool:
+	return target is DungeonEnemy
 
 
 func heal(healing_hearts: int) -> int:

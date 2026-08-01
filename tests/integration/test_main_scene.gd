@@ -76,6 +76,45 @@ func test_vendor_opens_when_player_presses_e_while_adjacent() -> void:
 	assert_true(status_log.get_messages().has("Rook trades Ancient Coin for Amber Potion"))
 
 
+func test_player_presses_e_to_hire_an_adjacent_fighter() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var hireling: DungeonHireling = dungeon_level.get_hireling()
+	var adjacent_cell: Vector2i = _get_adjacent_empty_cell(dungeon_level, hireling.current_cell)
+	player.current_cell = adjacent_cell
+	player.position = dungeon_level.cell_to_world(adjacent_cell)
+	for _coin_index: int in range(DungeonLevel.HIRELING_COST):
+		player.inventory.add_item("Ancient Coin")
+
+	var interact_event: InputEventKey = InputEventKey.new()
+	interact_event.keycode = KEY_E
+	interact_event.pressed = true
+	player._unhandled_input(interact_event)
+
+	assert_true(dungeon_level.is_hireling_hired())
+	assert_true(hireling.is_hired)
+	assert_eq(player.inventory.get_item_count("Ancient Coin"), 0)
+	var status_log: StatusLog = main_scene.get_node("%StatusLog") as StatusLog
+	assert_true(status_log.get_messages().has("You hire the fighter for 5 Ancient Coins"))
+
+
+func test_hireling_notification_pops_up_when_player_is_near_the_fighter() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var hireling: DungeonHireling = dungeon_level.get_hireling()
+	var prompt_panel: Panel = main_scene.get_node("%HirelingPromptPanel") as Panel
+	var prompt_label: Label = main_scene.get_node("%PromptLabel") as Label
+	var adjacent_cell: Vector2i = _get_adjacent_empty_cell(dungeon_level, hireling.current_cell)
+	player.current_cell = adjacent_cell
+	player.position = dungeon_level.cell_to_world(adjacent_cell)
+
+	await get_tree().process_frame
+
+	assert_true(prompt_panel.visible)
+	assert_true(prompt_label.text.contains("PRESS E TO HIRE FIGHTER"))
+	assert_true(prompt_label.text.contains("5 ANCIENT COINS"))
+
+
 func test_vendor_panel_keeps_the_offer_prompt_below_a_full_player_inventory() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
@@ -131,6 +170,33 @@ func test_main_scene_binds_the_ten_heart_player_health_to_the_hud() -> void:
 	await get_tree().process_frame
 
 	assert_eq(player.health.current_hearts, 8)
+
+
+func test_main_scene_hands_control_to_the_hired_fighter_and_shows_game_over() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var hireling: DungeonHireling = dungeon_level.get_hireling()
+	var health_bar: HeartHealthBar = main_scene.get_node("%HealthBar") as HeartHealthBar
+	var game_over_panel: Panel = main_scene.get_node("%GameOverPanel") as Panel
+	var adjacent_cell: Vector2i = _get_adjacent_empty_cell(dungeon_level, hireling.current_cell)
+	player.current_cell = adjacent_cell
+	player.position = dungeon_level.cell_to_world(adjacent_cell)
+	for _coin_index: int in range(DungeonLevel.HIRELING_COST):
+		player.inventory.add_item("Ancient Coin")
+
+	assert_true(dungeon_level.interact_with_hireling(player.current_cell, player.inventory))
+	assert_true(dungeon_level.is_hireling_hired())
+
+	player.take_damage(DungeonPlayer.MAX_HEARTS)
+	assert_eq(dungeon_level.get_player(), hireling)
+	assert_eq(
+		health_bar.custom_minimum_size.x,
+		DungeonHireling.MAX_HEARTS * HeartHealthBar.HEART_WIDTH
+		+ (DungeonHireling.MAX_HEARTS - 1) * HeartHealthBar.HEART_SPACING,
+	)
+
+	hireling.take_damage(DungeonHireling.MAX_HEARTS)
+	assert_true(game_over_panel.visible)
 
 
 func test_resizing_keeps_status_log_right_aligned_and_map_to_its_left() -> void:
@@ -234,3 +300,21 @@ func _get_adjacent_walkable_cell(dungeon_level: DungeonLevel, target_cell: Vecto
 		if dungeon_level.is_walkable(candidate_cell):
 			return candidate_cell
 	return target_cell
+
+
+func _get_adjacent_empty_cell(dungeon_level: DungeonLevel, target_cell: Vector2i) -> Vector2i:
+	var directions: Array[Vector2i] = [
+		Vector2i(-1, 0),
+		Vector2i(1, 0),
+		Vector2i(0, -1),
+		Vector2i(0, 1),
+	]
+	for direction: Vector2i in directions:
+		var candidate_cell: Vector2i = target_cell + direction
+		if (
+			dungeon_level.is_walkable(candidate_cell)
+			and dungeon_level.get_entity_at(candidate_cell) == null
+			and dungeon_level.get_vendor_at(candidate_cell) == null
+		):
+			return candidate_cell
+	return _get_adjacent_walkable_cell(dungeon_level, target_cell)

@@ -74,6 +74,19 @@ func test_entities_are_hidden_when_their_cells_are_not_lit() -> void:
 	assert_false(enemy.visible)
 
 
+func test_hireling_is_visible_in_player_light_and_hidden_outside_it() -> void:
+	var hireling: DungeonHireling = dungeon_level.get_hireling()
+	hireling.setup(dungeon_level, Vector2i(7, 5))
+	dungeon_level.refresh_visibility()
+
+	assert_true(hireling.visible)
+
+	hireling.setup(dungeon_level, Vector2i(20, 20))
+	dungeon_level.refresh_visibility()
+
+	assert_false(hireling.visible)
+
+
 func test_moving_the_player_refreshes_the_light_after_the_move_finishes() -> void:
 	assert_true(dungeon_level.is_cell_visible(Vector2i(7, 5)))
 

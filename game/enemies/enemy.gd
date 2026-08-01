@@ -26,7 +26,7 @@ func take_turn() -> bool:
 	if health.is_depleted() or is_action_in_progress() or dungeon_level == null:
 		return false
 
-	var target: DungeonPlayer = dungeon_level.get_player()
+	var target: DungeonEntity = dungeon_level.get_player()
 	if target == null or target.health.is_depleted():
 		return false
 
@@ -54,7 +54,9 @@ func get_display_name() -> String:
 
 
 func _can_attack_target(target: DungeonEntity) -> bool:
-	return not target is DungeonEnemy
+	if target == null or dungeon_level == null:
+		return false
+	return target == dungeon_level.get_player()
 
 
 func _get_chase_directions(target_cell: Vector2i) -> Array[Vector2i]:

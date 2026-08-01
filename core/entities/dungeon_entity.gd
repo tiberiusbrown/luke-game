@@ -55,6 +55,8 @@ func try_move(direction: Vector2i) -> bool:
 	var target_cell: Vector2i = current_cell + direction
 	var target_entity: DungeonEntity = dungeon_level.get_entity_at(target_cell)
 	if target_entity != null and target_entity != self:
+		if is_player_entity() and target_entity.can_be_passed_through_by_player():
+			return _try_swap_with_entity(target_entity)
 		return _try_attack(target_entity)
 	if not dungeon_level.is_walkable(target_cell):
 		return false
@@ -85,6 +87,10 @@ func get_attack_color() -> Color:
 
 
 func is_player_entity() -> bool:
+	return false
+
+
+func can_be_passed_through_by_player() -> bool:
 	return false
 
 
@@ -173,6 +179,25 @@ func _try_attack(target: DungeonEntity) -> bool:
 	_action_tween.tween_property(self, "position", starting_position, ATTACK_RETURN_DURATION)
 	_action_tween.tween_callback(_finish_attack)
 	return true
+
+
+func _try_swap_with_entity(target: DungeonEntity) -> bool:
+	if (
+		target == null
+		or not is_instance_valid(target)
+		or target.is_action_in_progress()
+		or dungeon_level == null
+	):
+		return false
+	if not _begin_action():
+		return false
+
+	var from_cell: Vector2i = current_cell
+	var target_cell: Vector2i = target.current_cell
+	target.current_cell = from_cell
+	target.position = dungeon_level.cell_to_world(from_cell)
+	target.velocity = Vector2.ZERO
+	return _start_movement(target_cell)
 
 
 func _resolve_attack(target: DungeonEntity) -> void:
