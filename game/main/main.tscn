@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://game/main/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://game/dungeon/dungeon_level.gd" id="2_dungeon"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://game/ui/heart_health_bar.gd" id="5_health_bar"]
 [ext_resource type="Script" path="res://game/inventory/wield_panel.gd" id="6_wield_panel"]
 [ext_resource type="Script" path="res://game/ui/status_log.gd" id="7_status_log"]
+[ext_resource type="Script" path="res://game/vendor/vendor_panel.gd" id="8_vendor_panel"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_panel"]
 bg_color = Color(0.055, 0.071, 0.118, 0.98)
@@ -65,7 +66,7 @@ offset_right = 500.0
 offset_bottom = 58.0
 theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
 theme_override_font_sizes/font_size = 12
-text = "ARROW KEYS  -  MOVE / ATTACK    |    I  -  INVENTORY    |    W  -  WIELD"
+text = "ARROWS MOVE/ATTACK  |  E TRADE  |  I PACK  |  W WIELD"
 
 [node name="HealthLabel" type="Label" parent="Hud"]
 offset_left = 500.0
@@ -212,6 +213,102 @@ offset_bottom = 362.0
 theme_override_colors/font_color = Color(0.42, 0.78, 0.67, 1)
 theme_override_font_sizes/font_size = 13
 text = "NOTHING SELECTED"
+
+[node name="VendorPanel" type="Panel" parent="Hud"]
+unique_name_in_owner = true
+visible = false
+offset_right = 560.0
+offset_bottom = 448.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_inventory_panel")
+script = ExtResource("8_vendor_panel")
+
+[node name="TitleLabel" type="Label" parent="Hud/VendorPanel"]
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 520.0
+offset_bottom = 58.0
+theme_override_colors/font_color = Color(0.91, 0.94, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "ROOK'S EXCHANGE"
+
+[node name="HintLabel" type="Label" parent="Hud/VendorPanel"]
+offset_left = 30.0
+offset_top = 61.0
+offset_right = 530.0
+offset_bottom = 84.0
+theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
+theme_override_font_sizes/font_size = 12
+text = "LEFT/RIGHT SIDE    UP/DOWN SELECT    ENTER EXCHANGE    ESC CLOSE"
+
+[node name="Divider" type="ColorRect" parent="Hud/VendorPanel"]
+offset_left = 30.0
+offset_top = 100.0
+offset_right = 530.0
+offset_bottom = 102.0
+mouse_filter = 2
+color = Color(0.259, 0.494, 0.58, 0.65)
+
+[node name="PlayerHeader" type="Label" parent="Hud/VendorPanel"]
+offset_left = 30.0
+offset_top = 120.0
+offset_right = 260.0
+offset_bottom = 145.0
+theme_override_colors/font_color = Color(0.42, 0.78, 0.67, 1)
+theme_override_font_sizes/font_size = 14
+text = "YOUR OFFER"
+
+[node name="VendorHeader" type="Label" parent="Hud/VendorPanel"]
+offset_left = 286.0
+offset_top = 120.0
+offset_right = 530.0
+offset_bottom = 145.0
+theme_override_colors/font_color = Color(0.84, 0.66, 0.37, 1)
+theme_override_font_sizes/font_size = 14
+text = "ROOK'S STOCK"
+
+[node name="PlayerOfferLabel" type="Label" parent="Hud/VendorPanel"]
+unique_name_in_owner = true
+offset_left = 30.0
+offset_top = 151.0
+offset_right = 260.0
+offset_bottom = 326.0
+theme_override_colors/font_color = Color(0.82, 0.87, 0.94, 1)
+theme_override_font_sizes/font_size = 15
+autowrap_mode = 2
+text = "NO ITEMS"
+
+[node name="VendorStockLabel" type="Label" parent="Hud/VendorPanel"]
+unique_name_in_owner = true
+offset_left = 286.0
+offset_top = 151.0
+offset_right = 530.0
+offset_bottom = 326.0
+theme_override_colors/font_color = Color(0.82, 0.87, 0.94, 1)
+theme_override_font_sizes/font_size = 15
+autowrap_mode = 2
+text = "NO ITEMS"
+
+[node name="SelectedSideLabel" type="Label" parent="Hud/VendorPanel"]
+unique_name_in_owner = true
+offset_left = 30.0
+offset_top = 350.0
+offset_right = 530.0
+offset_bottom = 376.0
+theme_override_colors/font_color = Color(0.42, 0.78, 0.67, 1)
+theme_override_font_sizes/font_size = 13
+text = "OFFER: NOTHING SELECTED"
+
+[node name="TradeStatusLabel" type="Label" parent="Hud/VendorPanel"]
+unique_name_in_owner = true
+offset_left = 30.0
+offset_top = 390.0
+offset_right = 530.0
+offset_bottom = 422.0
+theme_override_colors/font_color = Color(0.84, 0.66, 0.37, 1)
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 2
+text = "ONE ITEM FOR ONE ITEM"
 
 [node name="StatusLog" type="Panel" parent="Hud"]
 unique_name_in_owner = true

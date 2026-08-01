@@ -34,8 +34,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key_event == null or not key_event.pressed or key_event.echo:
 		return
 
+	if _is_key(key_event, KEY_E):
+		if dungeon_level != null and dungeon_level.interact_with_vendor(current_cell):
+			get_viewport().set_input_as_handled()
+		return
+
 	var direction: Vector2i = _get_direction_for_key(key_event)
 	if direction != Vector2i.ZERO:
+		if dungeon_level != null and dungeon_level.get_vendor_at(current_cell + direction) != null:
+			return
 		try_move(direction)
 
 
@@ -99,6 +106,10 @@ func _get_direction_for_key(key_event: InputEventKey) -> Vector2i:
 	if key_event.keycode == KEY_S or key_event.physical_keycode == KEY_S:
 		return Vector2i(0, 1)
 	return Vector2i.ZERO
+
+
+func _is_key(key_event: InputEventKey, key_code: int) -> bool:
+	return key_event.keycode == key_code or key_event.physical_keycode == key_code
 
 
 func _draw() -> void:

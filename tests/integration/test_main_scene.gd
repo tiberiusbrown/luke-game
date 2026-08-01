@@ -36,6 +36,46 @@ func test_main_scene_contains_weapon_pickups() -> void:
 	assert_true(has_weapon_pickup)
 
 
+func test_main_scene_contains_a_dedicated_vendor_room() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var vendor: DungeonVendor = dungeon_level.get_vendor()
+
+	assert_not_null(vendor)
+	assert_true(dungeon_level.get_vendor_room().has_point(vendor.cell))
+	assert_ne(vendor.cell, dungeon_level.get_start_cell())
+	assert_ne(vendor.cell, dungeon_level.get_exit_cell())
+	assert_eq(vendor.inventory.get_total_item_count(), 3)
+
+
+func test_vendor_opens_when_player_presses_e_while_adjacent() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var vendor_panel: VendorPanel = main_scene.get_node("%VendorPanel") as VendorPanel
+	var vendor: DungeonVendor = dungeon_level.get_vendor()
+	var adjacent_cell: Vector2i = _get_adjacent_walkable_cell(dungeon_level, vendor.cell)
+	player.current_cell = adjacent_cell
+	player.position = dungeon_level.cell_to_world(adjacent_cell)
+	player.inventory.add_item("Ancient Coin")
+	var interact_event: InputEventKey = InputEventKey.new()
+	interact_event.keycode = KEY_E
+	interact_event.pressed = true
+
+	player._unhandled_input(interact_event)
+
+	assert_true(vendor_panel.visible)
+	assert_eq(player.get_current_cell(), adjacent_cell)
+
+	var exchange_event: InputEventKey = InputEventKey.new()
+	exchange_event.keycode = KEY_ENTER
+	exchange_event.pressed = true
+	main_scene._input(exchange_event)
+
+	assert_eq(player.inventory.get_item_count("Ancient Coin"), 0)
+	assert_eq(player.inventory.get_item_count("Amber Potion"), 1)
+	var status_log: StatusLog = main_scene.get_node("%StatusLog") as StatusLog
+	assert_true(status_log.get_messages().has("Rook trades Ancient Coin for Amber Potion"))
+
+
 func test_main_scene_spawns_one_zombie_and_one_skeleton_without_health_ui() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var enemy_types: Array[String] = []
@@ -149,3 +189,17 @@ func test_wield_panel_moves_selection_and_toggles_the_selected_weapon() -> void:
 	main_scene._input(enter_event)
 	assert_null(player.inventory.get_equipped_weapon())
 	assert_true(status_log.get_messages().has("You unwield the Rusty Sword"))
+
+
+func _get_adjacent_walkable_cell(dungeon_level: DungeonLevel, target_cell: Vector2i) -> Vector2i:
+	var directions: Array[Vector2i] = [
+		Vector2i(-1, 0),
+		Vector2i(1, 0),
+		Vector2i(0, -1),
+		Vector2i(0, 1),
+	]
+	for direction: Vector2i in directions:
+		var candidate_cell: Vector2i = target_cell + direction
+		if dungeon_level.is_walkable(candidate_cell):
+			return candidate_cell
+	return target_cell

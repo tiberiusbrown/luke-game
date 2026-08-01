@@ -4,6 +4,7 @@ extends Node2D
 signal dungeon_generated(start_cell: Vector2i, exit_cell: Vector2i)
 signal item_collected(item_name: String, cell: Vector2i)
 signal combat_event(message: String)
+signal vendor_interaction_requested(vendor: DungeonVendor)
 
 const GRID_WIDTH: int = 25
 const GRID_HEIGHT: int = 17
@@ -16,10 +17,14 @@ const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shar
 const ITEM_COUNT: int = 3
 const WEAPON_NAMES: Array[String] = ["Rusty Sword", "Bone Axe"]
 const WEAPON_DAMAGE: Array[int] = [2, 3]
+const VENDOR_ROOM_INDEX: int = 1
 
 var tiles: Array = []
 var start_cell: Vector2i = Vector2i.ZERO
 var exit_cell: Vector2i = Vector2i.ZERO
+var vendor_room: Rect2i = Rect2i()
+var vendor_cell: Vector2i = Vector2i.ZERO
+var vendor: DungeonVendor = null
 var pickups: Array[ItemPickup] = []
 var entities: Array[DungeonEntity] = []
 var enemies: Array[DungeonEnemy] = []
@@ -79,6 +84,9 @@ func generate() -> void:
 
 	start_cell = rooms[0].get_center()
 	exit_cell = rooms[rooms.size() - 1].get_center()
+	vendor_room = rooms[mini(VENDOR_ROOM_INDEX, rooms.size() - 1)]
+	vendor_cell = _find_vendor_cell(vendor_room)
+	_spawn_vendor()
 	_spawn_items()
 	queue_redraw()
 	dungeon_generated.emit(start_cell, exit_cell)
@@ -127,6 +135,30 @@ func get_start_cell() -> Vector2i:
 
 func get_exit_cell() -> Vector2i:
 	return exit_cell
+
+
+func get_vendor() -> DungeonVendor:
+	return vendor
+
+
+func get_vendor_room() -> Rect2i:
+	return vendor_room
+
+
+func get_vendor_at(cell: Vector2i) -> DungeonVendor:
+	if vendor != null and is_instance_valid(vendor) and vendor.cell == cell:
+		return vendor
+	return null
+
+
+func interact_with_vendor(player_cell: Vector2i) -> bool:
+	if vendor == null or not is_instance_valid(vendor):
+		return false
+	if not _are_adjacent(player_cell, vendor.cell):
+		return false
+
+	vendor_interaction_requested.emit(vendor)
+	return true
 
 
 func refresh_visibility() -> void:
@@ -204,7 +236,7 @@ func begin_player_action(player: DungeonEntity) -> bool:
 func spawn_enemy(enemy: DungeonEnemy, cell: Vector2i) -> DungeonEnemy:
 	if enemy == null or not is_walkable(cell):
 		return null
-	if get_entity_at(cell) != null or _has_pickup_at(cell):
+	if get_entity_at(cell) != null or _has_pickup_at(cell) or get_vendor_at(cell) != null:
 		return null
 
 	enemy.setup(self, cell)
@@ -330,7 +362,12 @@ func _spawn_items() -> void:
 	for y in range(GRID_HEIGHT):
 		for x in range(GRID_WIDTH):
 			var cell: Vector2i = Vector2i(x, y)
-			if is_walkable(cell) and cell != start_cell and cell != exit_cell:
+			if (
+				is_walkable(cell)
+				and cell != start_cell
+				and cell != exit_cell
+				and not vendor_room.has_point(cell)
+			):
 				candidate_cells.append(cell)
 
 	var item_count: int = mini(ITEM_COUNT, candidate_cells.size())
@@ -356,7 +393,12 @@ func _spawn_enemies() -> void:
 	for y in range(GRID_HEIGHT):
 		for x in range(GRID_WIDTH):
 			var cell: Vector2i = Vector2i(x, y)
-			if not is_walkable(cell) or cell == start_cell or cell == exit_cell:
+			if (
+				not is_walkable(cell)
+				or cell == start_cell
+				or cell == exit_cell
+				or vendor_room.has_point(cell)
+			):
 				continue
 			if get_entity_at(cell) != null or _has_pickup_at(cell):
 				continue
@@ -387,6 +429,33 @@ func _has_pickup_at(cell: Vector2i) -> bool:
 		if is_instance_valid(pickup) and pickup.cell == cell:
 			return true
 	return false
+
+
+func _spawn_vendor() -> void:
+	if vendor != null and is_instance_valid(vendor):
+		vendor.queue_free()
+
+	vendor = DungeonVendor.new()
+	vendor.setup(self, vendor_cell)
+	add_child(vendor)
+
+
+func _find_vendor_cell(room: Rect2i) -> Vector2i:
+	var preferred_cell: Vector2i = room.get_center()
+	if is_walkable(preferred_cell) and preferred_cell != start_cell and preferred_cell != exit_cell:
+		return preferred_cell
+
+	for y: int in range(room.position.y, room.end.y):
+		for x: int in range(room.position.x, room.end.x):
+			var candidate_cell: Vector2i = Vector2i(x, y)
+			if is_walkable(candidate_cell) and candidate_cell != start_cell and candidate_cell != exit_cell:
+				return candidate_cell
+	return preferred_cell
+
+
+func _are_adjacent(first_cell: Vector2i, second_cell: Vector2i) -> bool:
+	var difference: Vector2i = second_cell - first_cell
+	return abs(difference.x) + abs(difference.y) == 1
 
 
 func _on_entity_action_finished(entity: DungeonEntity) -> void:
@@ -469,6 +538,9 @@ func _refresh_visibility() -> void:
 			continue
 		pickup.set_explored_state(is_cell_visible(pickup.cell), is_cell_known(pickup.cell))
 
+	if vendor != null and is_instance_valid(vendor):
+		vendor.set_explored_state(is_cell_visible(vendor.cell), is_cell_known(vendor.cell))
+
 	queue_redraw()
 
 
@@ -509,6 +581,12 @@ func _draw() -> void:
 		_draw_marker(start_cell, Color("#4bc6a7"), false)
 	if is_cell_known(exit_cell):
 		_draw_marker(exit_cell, Color("#d6a85f"), true)
+	if vendor_room.size != Vector2i.ZERO and is_cell_known(vendor_cell):
+		var room_rect: Rect2 = Rect2(
+			Vector2(vendor_room.position * TILE_SIZE),
+			Vector2(vendor_room.size * TILE_SIZE),
+		)
+		draw_rect(room_rect.grow(-2.0), Color(0.84, 0.66, 0.37, 0.38), false, 2.0)
 
 
 func _draw_marker(cell: Vector2i, color: Color, is_exit: bool) -> void:

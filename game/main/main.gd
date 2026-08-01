@@ -18,6 +18,7 @@ const POSITION_LABEL_WIDTH: float = 144.0
 @onready var health_bar: HeartHealthBar = $Hud/HealthBar
 @onready var inventory_panel: InventoryPanel = $Hud/InventoryPanel
 @onready var wield_panel: WieldPanel = $Hud/WieldPanel
+@onready var vendor_panel: VendorPanel = $Hud/VendorPanel
 @onready var status_log: StatusLog = $Hud/StatusLog
 
 
@@ -25,9 +26,12 @@ func _ready() -> void:
 	set_process_input(true)
 	player.inventory.inventory_changed.connect(_on_inventory_changed)
 	dungeon_level.item_collected.connect(_on_item_collected)
+	dungeon_level.vendor_interaction_requested.connect(_on_vendor_interaction_requested)
 	player.inventory.weapon_wielded.connect(_on_weapon_wielded)
 	player.inventory.weapon_unwielded.connect(_on_weapon_unwielded)
 	dungeon_level.combat_event.connect(_on_combat_event)
+	vendor_panel.trade_completed.connect(_on_vendor_trade_completed)
+	vendor_panel.close_requested.connect(_on_vendor_panel_close_requested)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	health_bar.bind_health(player.health)
 	inventory_panel.refresh(player.inventory)
@@ -81,6 +85,7 @@ func _layout_ui() -> void:
 	dungeon_level.position = map_area.position + (map_area.size - scaled_map_size) * 0.5
 	_center_panel(inventory_panel, map_area)
 	_center_panel(wield_panel, map_area)
+	_center_panel(vendor_panel, map_area)
 
 	var position_left: float = maxf(
 		LAYOUT_MARGIN,
@@ -116,6 +121,12 @@ func _handle_key_event(event: InputEvent) -> void:
 	if key_event == null:
 		return
 
+	if vendor_panel.visible:
+		if key_event.pressed and not key_event.echo:
+			vendor_panel.handle_key(key_event)
+		get_viewport().set_input_as_handled()
+		return
+
 	if inventory_panel.visible or wield_panel.visible:
 		if key_event.pressed and not key_event.echo:
 			if inventory_panel.visible and _is_key(key_event, KEY_I):
@@ -148,6 +159,8 @@ func _on_inventory_changed() -> void:
 		inventory_panel.refresh(player.inventory)
 	if wield_panel.visible:
 		wield_panel.refresh(player.inventory)
+	if vendor_panel.visible:
+		vendor_panel.refresh()
 
 
 func _on_item_collected(item_name: String, _cell: Vector2i) -> void:
@@ -164,6 +177,20 @@ func _on_weapon_unwielded(weapon: WeaponData) -> void:
 
 func _on_combat_event(message: String) -> void:
 	status_log.add_message(message)
+
+
+func _on_vendor_interaction_requested(vendor: DungeonVendor) -> void:
+	inventory_panel.visible = false
+	wield_panel.visible = false
+	vendor_panel.show_vendor(vendor, player.inventory)
+
+
+func _on_vendor_trade_completed(offered_name: String, received_name: String) -> void:
+	status_log.add_message("Rook trades %s for %s" % [offered_name, received_name])
+
+
+func _on_vendor_panel_close_requested() -> void:
+	vendor_panel.visible = false
 
 
 func _is_key(key_event: InputEventKey, key_code: int) -> bool:
