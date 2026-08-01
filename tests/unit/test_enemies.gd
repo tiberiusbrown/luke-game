@@ -123,6 +123,21 @@ func test_enemy_movement_is_animated_to_the_target_cell() -> void:
 	assert_eq(enemy.position, dungeon_level.cell_to_world(Vector2i(3, 2)))
 
 
+func test_player_can_move_while_enemy_animation_is_active_and_enemy_catches_up() -> void:
+	var enemy: SkeletonEnemy = SkeletonEnemy.new()
+	dungeon_level.spawn_enemy(enemy, Vector2i(4, 2))
+
+	assert_true(enemy.take_turn())
+	assert_true(enemy.is_moving)
+	assert_true(player.try_move(Vector2i(0, 1)))
+	assert_true(player.is_moving)
+
+	await get_tree().create_timer(DungeonEntity.MOVE_DURATION * 0.75).timeout
+
+	assert_false(enemy.is_moving)
+
+
+
 func test_hit_effect_particle_amount_grows_with_damage() -> void:
 	assert_gt(HitEffect.particle_amount_for_damage(2), HitEffect.particle_amount_for_damage(1))
 	assert_eq(HitEffect.particle_amount_for_damage(1), 8)

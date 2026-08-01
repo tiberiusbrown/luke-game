@@ -14,6 +14,7 @@ const DEFAULT_MAX_HEARTS: int = 10
 const MOVE_DURATION: float = 0.14
 const ATTACK_LUNGE_DURATION: float = 0.08
 const ATTACK_RETURN_DURATION: float = 0.12
+const CATCH_UP_ANIMATION_SPEED_SCALE: float = 4.0
 
 var dungeon_level: DungeonLevel = null
 var current_cell: Vector2i = Vector2i.ZERO
@@ -111,6 +112,12 @@ func set_random_seed(random_seed: int) -> void:
 
 func is_action_in_progress() -> bool:
 	return is_moving or is_attacking
+
+
+func speed_up_action_animation() -> void:
+	if not is_instance_valid(_action_tween) or not _action_tween.is_running():
+		return
+	_action_tween.set_speed_scale(CATCH_UP_ANIMATION_SPEED_SCALE)
 
 
 func _can_start_action() -> bool:

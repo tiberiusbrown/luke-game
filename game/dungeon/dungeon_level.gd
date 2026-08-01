@@ -167,10 +167,11 @@ func get_player() -> DungeonPlayer:
 func begin_player_action(player: DungeonEntity) -> bool:
 	if player == null or not player.is_player_entity():
 		return false
-	if _player_action_in_progress or _active_enemy != null or not _enemy_action_queue.is_empty():
+	if _player_action_in_progress:
 		return false
 
 	_player_action_in_progress = true
+	_speed_up_non_player_animations()
 	if turn_scheduler != null and not turn_scheduler.has_entity(player):
 		turn_scheduler.add_entity(player)
 	return true
@@ -368,7 +369,6 @@ func _on_entity_action_finished(entity: DungeonEntity) -> void:
 		if turn_scheduler == null:
 			return
 		var due_entities: Array[DungeonEntity] = turn_scheduler.advance_after_action(entity)
-		_enemy_action_queue.clear()
 		for due_entity: DungeonEntity in due_entities:
 			if due_entity is DungeonEnemy:
 				_enemy_action_queue.append(due_entity as DungeonEnemy)
@@ -390,8 +390,17 @@ func _run_next_enemy_action() -> void:
 			continue
 		_active_enemy = enemy
 		if enemy.take_turn():
+			if _player_action_in_progress:
+				enemy.speed_up_action_animation()
 			return
 		_active_enemy = null
+
+
+func _speed_up_non_player_animations() -> void:
+	for entity: DungeonEntity in entities:
+		if not is_instance_valid(entity) or entity.is_player_entity():
+			continue
+		entity.speed_up_action_animation()
 
 
 func _on_entity_defeated(entity: DungeonEntity) -> void:
