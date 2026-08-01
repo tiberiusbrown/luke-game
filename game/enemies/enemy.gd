@@ -53,6 +53,10 @@ func get_display_name() -> String:
 	return enemy_type
 
 
+func _can_attack_target(target: DungeonEntity) -> bool:
+	return not target is DungeonEnemy
+
+
 func _get_chase_directions(target_cell: Vector2i) -> Array[Vector2i]:
 	var directions: Array[Vector2i] = []
 	var difference: Vector2i = target_cell - current_cell

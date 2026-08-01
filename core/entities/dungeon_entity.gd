@@ -143,6 +143,8 @@ func _start_movement(target_cell: Vector2i) -> bool:
 func _try_attack(target: DungeonEntity) -> bool:
 	if target == null or not is_instance_valid(target) or target.health.is_depleted():
 		return false
+	if not _can_attack_target(target):
+		return false
 	if not _are_adjacent(target.current_cell):
 		return false
 	if not _begin_action():
@@ -204,6 +206,10 @@ func _finish_attack() -> void:
 
 func _after_move() -> void:
 	pass
+
+
+func _can_attack_target(_target: DungeonEntity) -> bool:
+	return true
 
 
 func _on_defeated() -> void:

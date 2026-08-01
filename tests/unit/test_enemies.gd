@@ -87,6 +87,27 @@ func test_enemy_attacks_by_moving_into_the_player() -> void:
 	assert_false(enemy.is_attacking)
 
 
+func test_enemies_do_not_attack_each_other_when_one_blocks_the_chase_route() -> void:
+	player.current_cell = Vector2i(2, 1)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+
+	var blocker: ZombieEnemy = ZombieEnemy.new()
+	dungeon_level.spawn_enemy(blocker, Vector2i(3, 2))
+	var follower: SkeletonEnemy = SkeletonEnemy.new()
+	follower.hit_chance = 1.0
+	dungeon_level.spawn_enemy(follower, Vector2i(4, 2))
+
+	var blocker_hearts: int = blocker.health.current_hearts
+	assert_true(follower.take_turn())
+	assert_eq(follower.get_current_cell(), Vector2i(4, 1))
+	assert_eq(blocker.health.current_hearts, blocker_hearts)
+	assert_false(follower.is_attacking)
+
+	await get_tree().create_timer(DungeonEntity.MOVE_DURATION + 0.05).timeout
+
+	assert_false(follower.is_moving)
+
+
 func test_enemy_movement_is_animated_to_the_target_cell() -> void:
 	var enemy: SkeletonEnemy = SkeletonEnemy.new()
 	dungeon_level.spawn_enemy(enemy, Vector2i(4, 2))
