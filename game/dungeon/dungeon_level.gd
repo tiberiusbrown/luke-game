@@ -8,6 +8,7 @@ signal combat_event(message: String)
 const GRID_WIDTH: int = 25
 const GRID_HEIGHT: int = 17
 const TILE_SIZE: int = 32
+const LIGHT_RADIUS: int = 5
 const WALL: int = 0
 const FLOOR: int = 1
 const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shard"]
@@ -22,12 +23,15 @@ var pickups: Array[ItemPickup] = []
 var entities: Array[DungeonEntity] = []
 var enemies: Array[DungeonEnemy] = []
 var turn_scheduler: TurnScheduler = null
+var visible_cells: Dictionary = {}
+var known_cells: Dictionary = {}
 
 var _player_action_in_progress: bool = false
 var _enemy_action_queue: Array[DungeonEnemy] = []
 var _active_enemy: DungeonEnemy = null
 
 var _random: RandomNumberGenerator = RandomNumberGenerator.new()
+var _field_of_view: DungeonFieldOfView = DungeonFieldOfView.new(GRID_WIDTH, GRID_HEIGHT)
 
 
 func _enter_tree() -> void:
@@ -41,12 +45,15 @@ func _ready() -> void:
 		if entity != null:
 			register_entity(entity)
 	_spawn_enemies()
+	_refresh_visibility()
 
 
 func generate() -> void:
 	_clear_enemies()
 	_random.randomize()
 	tiles.clear()
+	visible_cells.clear()
+	known_cells.clear()
 
 	for y in range(GRID_HEIGHT):
 		var row: Array[int] = []
@@ -76,6 +83,7 @@ func generate() -> void:
 	dungeon_generated.emit(start_cell, exit_cell)
 	if is_node_ready():
 		_spawn_enemies()
+		_refresh_visibility()
 
 
 func is_walkable(cell: Vector2i) -> bool:
@@ -120,6 +128,18 @@ func get_exit_cell() -> Vector2i:
 	return exit_cell
 
 
+func refresh_visibility() -> void:
+	_refresh_visibility()
+
+
+func is_cell_visible(cell: Vector2i) -> bool:
+	return visible_cells.has(cell)
+
+
+func is_cell_known(cell: Vector2i) -> bool:
+	return known_cells.has(cell)
+
+
 func register_entity(entity: DungeonEntity) -> void:
 	if entity == null or entities.has(entity):
 		return
@@ -131,6 +151,9 @@ func register_entity(entity: DungeonEntity) -> void:
 		entity.action_finished.connect(_on_entity_action_finished)
 	if not entity.defeated.is_connected(_on_entity_defeated):
 		entity.defeated.connect(_on_entity_defeated)
+	if not entity.movement_finished.is_connected(_on_entity_movement_finished):
+		entity.movement_finished.connect(_on_entity_movement_finished)
+	_refresh_visibility()
 
 
 func unregister_entity(entity: DungeonEntity) -> void:
@@ -186,6 +209,7 @@ func spawn_enemy(enemy: DungeonEnemy, cell: Vector2i) -> DungeonEnemy:
 	enemy.setup(self, cell)
 	add_child(enemy)
 	enemies.append(enemy)
+	_refresh_visibility()
 	return enemy
 
 
@@ -233,6 +257,7 @@ func _spawn_pickup(item_name: String, cell: Vector2i, weapon: WeaponData = null)
 	pickup.setup(item_name, cell, weapon)
 	add_child(pickup)
 	pickups.append(pickup)
+	_refresh_visibility()
 	return pickup
 
 
@@ -380,6 +405,10 @@ func _on_entity_action_finished(entity: DungeonEntity) -> void:
 		_run_next_enemy_action()
 
 
+func _on_entity_movement_finished(_entity: DungeonEntity, _cell: Vector2i) -> void:
+	_refresh_visibility()
+
+
 func _run_next_enemy_action() -> void:
 	if _active_enemy != null:
 		return
@@ -416,6 +445,36 @@ func _take_random_candidate(candidate_cells: Array[Vector2i]) -> Vector2i:
 	return candidate_cells.pop_at(candidate_index)
 
 
+func _refresh_visibility() -> void:
+	visible_cells.clear()
+	var player: DungeonPlayer = get_player()
+	if player != null and is_instance_valid(player):
+		var lit_cells: Array[Vector2i] = _field_of_view.compute(
+			player.current_cell,
+			LIGHT_RADIUS,
+			Callable(self, "_is_opaque_for_field_of_view"),
+		)
+		for cell: Vector2i in lit_cells:
+			visible_cells[cell] = true
+			known_cells[cell] = true
+
+	for entity: DungeonEntity in entities:
+		if not is_instance_valid(entity):
+			continue
+		entity.visible = entity.is_player_entity() or is_cell_visible(entity.current_cell)
+
+	for pickup: ItemPickup in pickups:
+		if not is_instance_valid(pickup):
+			continue
+		pickup.set_explored_state(is_cell_visible(pickup.cell), is_cell_known(pickup.cell))
+
+	queue_redraw()
+
+
+func _is_opaque_for_field_of_view(cell: Vector2i) -> bool:
+	return not is_walkable(cell)
+
+
 func _draw() -> void:
 	var map_size: Vector2 = Vector2(GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE)
 	draw_rect(Rect2(Vector2.ZERO, map_size), Color("#0b0e15"))
@@ -426,20 +485,34 @@ func _draw() -> void:
 				Vector2(x * TILE_SIZE, y * TILE_SIZE),
 				Vector2(TILE_SIZE, TILE_SIZE)
 			)
+			var cell: Vector2i = Vector2i(x, y)
+			if not is_cell_known(cell):
+				draw_rect(tile_rect, Color("#080a10"))
+				continue
+
 			var is_floor: bool = tiles.size() == GRID_HEIGHT and tiles[y][x] == FLOOR
-			if is_floor:
+			var is_lit: bool = is_cell_visible(cell)
+			if is_floor and is_lit:
 				draw_rect(tile_rect, Color("#252b39"))
 				draw_rect(tile_rect.grow(-1.0), Color("#303849"))
-			else:
+			elif is_floor:
+				draw_rect(tile_rect, Color("#141a27"))
+				draw_rect(tile_rect.grow(-1.0), Color("#1b2231"))
+			elif is_lit:
 				draw_rect(tile_rect.grow(-1.0), Color("#111621"))
+			else:
+				draw_rect(tile_rect.grow(-1.0), Color("#0b0f18"))
 
 
-	_draw_marker(start_cell, Color("#4bc6a7"), false)
-	_draw_marker(exit_cell, Color("#d6a85f"), true)
+	if is_cell_known(start_cell):
+		_draw_marker(start_cell, Color("#4bc6a7"), false)
+	if is_cell_known(exit_cell):
+		_draw_marker(exit_cell, Color("#d6a85f"), true)
 
 
 func _draw_marker(cell: Vector2i, color: Color, is_exit: bool) -> void:
 	var marker_center: Vector2 = cell_to_world(cell)
+	var marker_color: Color = color if is_cell_visible(cell) else color.darkened(0.55)
 	if is_exit:
 		var points: PackedVector2Array = PackedVector2Array([
 			marker_center + Vector2(0, -9),
@@ -447,8 +520,8 @@ func _draw_marker(cell: Vector2i, color: Color, is_exit: bool) -> void:
 			marker_center + Vector2(0, 9),
 			marker_center + Vector2(-9, 0),
 		])
-		draw_colored_polygon(points, color.darkened(0.35))
-		draw_polyline(points, color, 2.0)
+		draw_colored_polygon(points, marker_color.darkened(0.35))
+		draw_polyline(points, marker_color, 2.0)
 	else:
-		draw_circle(marker_center, 8.0, color.darkened(0.35))
-		draw_arc(marker_center, 8.0, 0.0, TAU, 20, color, 2.0)
+		draw_circle(marker_center, 8.0, marker_color.darkened(0.35))
+		draw_arc(marker_center, 8.0, 0.0, TAU, 20, marker_color, 2.0)

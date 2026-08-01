@@ -5,6 +5,8 @@ extends Node2D
 
 var cell: Vector2i = Vector2i.ZERO
 var weapon_data: WeaponData = null
+var is_known: bool = false
+var is_lit: bool = false
 
 
 func setup(new_item_name: String, new_cell: Vector2i, new_weapon_data: WeaponData = null) -> void:
@@ -20,6 +22,15 @@ func setup(new_item_name: String, new_cell: Vector2i, new_weapon_data: WeaponDat
 
 func _ready() -> void:
 	z_index = 1
+	visible = false
+	queue_redraw()
+
+
+func set_explored_state(lit: bool, known: bool) -> void:
+	is_lit = lit
+	is_known = known
+	visible = known
+	modulate = Color.WHITE if lit else Color("#626b7b")
 	queue_redraw()
 
 
