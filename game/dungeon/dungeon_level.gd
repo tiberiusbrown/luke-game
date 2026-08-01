@@ -6,12 +6,12 @@ signal item_collected(item_name: String, cell: Vector2i)
 signal combat_event(message: String)
 signal vendor_interaction_requested(vendor: DungeonVendor)
 
-const GRID_WIDTH: int = 40
-const GRID_HEIGHT: int = 28
+const GRID_WIDTH: int = 60
+const GRID_HEIGHT: int = 42
 const TILE_SIZE: int = 32
 const LIGHT_DIAMETER: int = 5
 const LIGHT_RADIUS: int = 2
-const ROOM_COUNT: int = 16
+const ROOM_COUNT: int = 24
 const WALL: int = 0
 const FLOOR: int = 1
 const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shard"]
