@@ -19,11 +19,11 @@ func before_each() -> void:
 	dungeon_level.refresh_visibility()
 
 
-func test_player_light_uses_a_five_cell_diameter_and_remembers_lit_cells() -> void:
-	assert_eq(dungeon_level.LIGHT_DIAMETER, 5)
-	assert_eq(dungeon_level.LIGHT_RADIUS, 2)
-	var edge_cell: Vector2i = Vector2i(7, 5)
-	var outside_cell: Vector2i = Vector2i(8, 5)
+func test_player_light_uses_a_five_cell_radius_and_remembers_lit_cells() -> void:
+	assert_eq(dungeon_level.LIGHT_DIAMETER, 11)
+	assert_eq(dungeon_level.LIGHT_RADIUS, 5)
+	var edge_cell: Vector2i = Vector2i(10, 5)
+	var outside_cell: Vector2i = Vector2i(11, 5)
 
 	assert_true(dungeon_level.is_cell_visible(edge_cell))
 	assert_true(dungeon_level.is_cell_known(edge_cell))

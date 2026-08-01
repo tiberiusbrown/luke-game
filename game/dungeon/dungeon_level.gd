@@ -9,8 +9,8 @@ signal vendor_interaction_requested(vendor: DungeonVendor)
 const GRID_WIDTH: int = 60
 const GRID_HEIGHT: int = 42
 const TILE_SIZE: int = 32
-const LIGHT_DIAMETER: int = 5
-const LIGHT_RADIUS: int = 2
+const LIGHT_DIAMETER: int = 11
+const LIGHT_RADIUS: int = 5
 const ROOM_COUNT: int = 24
 const WALL: int = 0
 const FLOOR: int = 1
