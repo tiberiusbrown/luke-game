@@ -949,6 +949,7 @@ func _on_entity_action_finished(entity: DungeonEntity) -> void:
 		for due_entity: DungeonEntity in due_entities:
 			if due_entity != get_player() and (due_entity is DungeonEnemy or due_entity is DungeonHireling):
 				_non_player_action_queue.append(due_entity)
+		_queue_boss_attack_if_in_range()
 		_run_next_non_player_action()
 		return
 
@@ -959,6 +960,28 @@ func _on_entity_action_finished(entity: DungeonEntity) -> void:
 
 func _on_entity_movement_finished(_entity: DungeonEntity, _cell: Vector2i) -> void:
 	_refresh_visibility()
+
+
+func _queue_boss_attack_if_in_range() -> void:
+	var boss: CyclopesEnemy = get_prison_boss()
+	var player: DungeonEntity = get_player()
+	if (
+		boss == null
+		or player == null
+		or boss.is_action_in_progress()
+		or _active_non_player != null
+		or _non_player_action_queue.has(boss)
+	):
+		return
+
+	var difference: Vector2i = player.current_cell - boss.current_cell
+	var distance: int = abs(difference.x) + abs(difference.y)
+	if distance <= 0 or distance > boss.get_attack_range():
+		return
+
+	if turn_scheduler != null and not turn_scheduler.has_entity(boss):
+		turn_scheduler.add_entity(boss)
+	_non_player_action_queue.push_front(boss)
 
 
 func _run_next_non_player_action() -> void:

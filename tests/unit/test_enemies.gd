@@ -124,6 +124,8 @@ func test_cyclopes_is_a_boss_with_thirty_hearts_and_heavy_attacks() -> void:
 	assert_eq(cyclopes.health.max_hearts, 30)
 	assert_eq(cyclopes.attack_damage, 4)
 	assert_eq(cyclopes.hit_chance, 0.90)
+	assert_eq(cyclopes.get_attack_range(), 2)
+	assert_eq(cyclopes.ATTACK_COOLDOWN, 0.8)
 	assert_gt(cyclopes.speed, player.speed)
 
 
@@ -133,6 +135,17 @@ func test_cyclopes_deals_four_hearts_when_its_attack_hits() -> void:
 	dungeon_level.spawn_enemy(cyclopes, Vector2i(3, 2))
 
 	assert_true(cyclopes.try_move(Vector2i(-1, 0)))
+	await get_tree().create_timer(HitEffect.DURATION + 0.1).timeout
+
+	assert_eq(player.health.current_hearts, 6)
+
+
+func test_cyclopes_can_attack_from_two_cells_away() -> void:
+	var cyclopes: CyclopesEnemy = CyclopesEnemy.new()
+	cyclopes.hit_chance = 1.0
+	dungeon_level.spawn_enemy(cyclopes, Vector2i(4, 2))
+
+	assert_true(cyclopes.take_turn())
 	await get_tree().create_timer(HitEffect.DURATION + 0.1).timeout
 
 	assert_eq(player.health.current_hearts, 6)

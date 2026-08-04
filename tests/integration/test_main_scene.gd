@@ -81,6 +81,147 @@ func test_boss_prison_stays_locked_without_its_key() -> void:
 	assert_true(status_log.get_messages().has("The Boss Prison is locked. Find a Boss Prison Key."))
 
 
+func test_unlocked_cyclopes_attacks_after_the_player_moves_into_range() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	dungeon_level._clear_enemies()
+	_set_all_floor(dungeon_level)
+
+	player.current_cell = Vector2i(1, 2)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+	player.inventory.add_item(DungeonLevel.BOSS_PRISON_KEY)
+	var door_approach_cell: Vector2i = _get_adjacent_empty_cell(
+		dungeon_level,
+		dungeon_level.get_prison_door_cell(),
+	)
+	player.current_cell = door_approach_cell
+	player.position = dungeon_level.cell_to_world(door_approach_cell)
+	assert_true(dungeon_level.interact_with_prison(player.current_cell, player.inventory))
+
+	var boss: CyclopesEnemy = dungeon_level.get_prison_boss()
+	assert_not_null(boss)
+	boss.hit_chance = 1.0
+	player.current_cell = Vector2i(1, 2)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+	boss.current_cell = Vector2i(3, 2)
+	boss.position = dungeon_level.cell_to_world(boss.current_cell)
+	dungeon_level.refresh_visibility()
+	dungeon_level.turn_scheduler.remove_entity(boss)
+	assert_false(dungeon_level.turn_scheduler.has_entity(boss))
+
+	assert_true(player.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(0.8).timeout
+
+	assert_eq(player.health.current_hearts, DungeonPlayer.MAX_HEARTS - CyclopesEnemy.ATTACK_DAMAGE)
+
+
+func test_cyclopes_can_cross_the_generated_prison_door_and_attack() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	dungeon_level._clear_enemies()
+
+	var outside_cell: Vector2i = _get_prison_outside_cell(dungeon_level)
+	player.current_cell = outside_cell
+	player.position = dungeon_level.cell_to_world(outside_cell)
+	player.inventory.add_item(DungeonLevel.BOSS_PRISON_KEY)
+	assert_true(dungeon_level.interact_with_prison(player.current_cell, player.inventory))
+
+	var boss: CyclopesEnemy = dungeon_level.get_prison_boss()
+	assert_not_null(boss)
+	boss.hit_chance = 1.0
+	var starting_hearts: int = player.health.current_hearts
+	for _turn: int in range(12):
+		if player.health.current_hearts < starting_hearts:
+			break
+		assert_true(boss.take_turn())
+		await get_tree().create_timer(0.4).timeout
+
+	assert_eq(player.health.current_hearts, starting_hearts - CyclopesEnemy.ATTACK_DAMAGE)
+
+
+func test_cyclopes_attacks_during_real_player_turns_in_the_generated_prison() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	dungeon_level._clear_enemies()
+
+	var outside_cell: Vector2i = _get_prison_outside_cell(dungeon_level)
+	var door_cell: Vector2i = dungeon_level.get_prison_door_cell()
+	var direction_to_door: Vector2i = door_cell - outside_cell
+	player.current_cell = outside_cell
+	player.position = dungeon_level.cell_to_world(outside_cell)
+	player.inventory.add_item(DungeonLevel.BOSS_PRISON_KEY)
+	assert_true(dungeon_level.interact_with_prison(player.current_cell, player.inventory))
+
+	var boss: CyclopesEnemy = dungeon_level.get_prison_boss()
+	assert_not_null(boss)
+	boss.hit_chance = 1.0
+	var starting_hearts: int = player.health.current_hearts
+	for _turn: int in range(12):
+		var player_direction: Vector2i = direction_to_door if player.current_cell == outside_cell else -direction_to_door
+		assert_true(player.try_move(player_direction))
+		await get_tree().create_timer(0.6).timeout
+		if player.health.current_hearts < starting_hearts:
+			break
+
+	assert_eq(player.health.current_hearts, starting_hearts - CyclopesEnemy.ATTACK_DAMAGE)
+
+
+func test_cyclopes_attacks_while_the_player_waits_in_range() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	dungeon_level._clear_enemies()
+	_set_all_floor(dungeon_level)
+
+	player.current_cell = Vector2i(2, 2)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+	player.inventory.add_item(DungeonLevel.BOSS_PRISON_KEY)
+	var door_approach_cell: Vector2i = _get_adjacent_empty_cell(
+		dungeon_level,
+		dungeon_level.get_prison_door_cell(),
+	)
+	player.current_cell = door_approach_cell
+	player.position = dungeon_level.cell_to_world(door_approach_cell)
+	assert_true(dungeon_level.interact_with_prison(player.current_cell, player.inventory))
+
+	var boss: CyclopesEnemy = dungeon_level.get_prison_boss()
+	assert_not_null(boss)
+	boss.hit_chance = 1.0
+	boss.current_cell = Vector2i(3, 2)
+	boss.position = dungeon_level.cell_to_world(boss.current_cell)
+	player.current_cell = Vector2i(2, 2)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+	dungeon_level.turn_scheduler.remove_entity(boss)
+	dungeon_level.refresh_visibility()
+
+	await get_tree().create_timer(CyclopesEnemy.ATTACK_COOLDOWN * 0.75).timeout
+
+	assert_eq(player.health.current_hearts, DungeonPlayer.MAX_HEARTS - CyclopesEnemy.ATTACK_DAMAGE)
+
+
+func _get_prison_outside_cell(dungeon_level: DungeonLevel) -> Vector2i:
+	var door_cell: Vector2i = dungeon_level.get_prison_door_cell()
+	var directions: Array[Vector2i] = [
+		Vector2i(-1, 0),
+		Vector2i(1, 0),
+		Vector2i(0, -1),
+		Vector2i(0, 1),
+	]
+	for direction: Vector2i in directions:
+		var candidate_cell: Vector2i = door_cell + direction
+		if not dungeon_level.get_prison_room().has_point(candidate_cell) and dungeon_level.is_walkable(candidate_cell):
+			return candidate_cell
+	return door_cell
+
+
+func _set_all_floor(dungeon_level: DungeonLevel) -> void:
+	dungeon_level.tiles.clear()
+	for _y: int in range(DungeonLevel.GRID_HEIGHT):
+		var row: Array[int] = []
+		for _x: int in range(DungeonLevel.GRID_WIDTH):
+			row.append(DungeonLevel.FLOOR)
+		dungeon_level.tiles.append(row)
+
+
 func test_main_scene_contains_weapon_pickups() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var has_weapon_pickup: bool = false

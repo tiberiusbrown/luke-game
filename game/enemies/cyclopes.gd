@@ -5,7 +5,11 @@ const HEALTH: int = 30
 const SPEED: float = 1.5
 const ATTACK_DAMAGE: int = 4
 const HIT_CHANCE: float = 0.90
+const ATTACK_RANGE: int = 2
+const ATTACK_COOLDOWN: float = 0.8
 const IS_BOSS: bool = true
+
+var _attack_cooldown: float = 0.0
 
 
 func _init() -> void:
@@ -20,6 +24,42 @@ func _init() -> void:
 
 func get_attack_color() -> Color:
 	return Color("#e85f70")
+
+
+func get_attack_range() -> int:
+	return ATTACK_RANGE
+
+
+func take_turn() -> bool:
+	return super.take_turn()
+
+
+func _try_attack(target: DungeonEntity) -> bool:
+	var action_started: bool = super._try_attack(target)
+	if action_started:
+		_attack_cooldown = ATTACK_COOLDOWN
+	return action_started
+
+
+func _process(delta: float) -> void:
+	if _attack_cooldown > 0.0:
+		_attack_cooldown = maxf(_attack_cooldown - delta, 0.0)
+	if (
+		_attack_cooldown > 0.0
+		or dungeon_level == null
+		or health.is_depleted()
+		or is_action_in_progress()
+	):
+		return
+
+	var target: DungeonEntity = dungeon_level.get_player()
+	if target == null or target.health.is_depleted() or target.is_action_in_progress():
+		return
+	if not _is_in_attack_range(target.current_cell):
+		return
+
+	if _try_attack(target):
+		_attack_cooldown = ATTACK_COOLDOWN
 
 
 func _draw() -> void:

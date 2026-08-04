@@ -74,6 +74,10 @@ func get_attack_damage() -> int:
 	return 0
 
 
+func get_attack_range() -> int:
+	return 1
+
+
 func get_hit_chance() -> float:
 	return 1.0
 
@@ -158,7 +162,7 @@ func _try_attack(target: DungeonEntity) -> bool:
 		return false
 	if not _can_attack_target(target):
 		return false
-	if not _are_adjacent(target.current_cell):
+	if not _is_in_attack_range(target.current_cell):
 		return false
 	if not _begin_action():
 		return false
@@ -267,6 +271,12 @@ func _kill_action_tween() -> void:
 func _are_adjacent(target_cell: Vector2i) -> bool:
 	var difference: Vector2i = target_cell - current_cell
 	return abs(difference.x) + abs(difference.y) == 1
+
+
+func _is_in_attack_range(target_cell: Vector2i) -> bool:
+	var difference: Vector2i = target_cell - current_cell
+	var distance: int = abs(difference.x) + abs(difference.y)
+	return distance > 0 and distance <= get_attack_range()
 
 
 func _is_cardinal_direction(direction: Vector2i) -> bool:
