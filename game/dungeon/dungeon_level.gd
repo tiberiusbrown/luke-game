@@ -57,6 +57,7 @@ var prison_door_cell: Vector2i = Vector2i.ZERO
 var prison_boss_cell: Vector2i = Vector2i.ZERO
 var prison_key_cell: Vector2i = Vector2i.ZERO
 var prison_boss: CyclopesEnemy = null
+var monster_spawner: MonsterSpawner = null
 var is_prison_unlocked: bool = false
 var pickups: Array[ItemPickup] = []
 var entities: Array[DungeonEntity] = []
@@ -89,6 +90,7 @@ func _ready() -> void:
 	if scene_player != null and active_player == null:
 		set_initial_player(scene_player)
 	_spawn_enemies()
+	_spawn_monster_spawner()
 	_refresh_visibility()
 
 
@@ -96,6 +98,7 @@ func generate() -> void:
 	_clear_enemies()
 	_clear_hireling()
 	prison_boss = null
+	_clear_monster_spawner()
 	has_hired_hireling = false
 	is_hireling_dead = false
 	is_game_over = false
@@ -155,6 +158,7 @@ func generate() -> void:
 	dungeon_generated.emit(start_cell, exit_cell)
 	if is_node_ready():
 		_spawn_enemies()
+		_spawn_monster_spawner()
 		_refresh_visibility()
 
 
@@ -266,6 +270,12 @@ func get_prison_boss() -> CyclopesEnemy:
 	if prison_boss == null or not is_instance_valid(prison_boss):
 		return null
 	return prison_boss
+
+
+func get_monster_spawner() -> MonsterSpawner:
+	if monster_spawner == null or not is_instance_valid(monster_spawner):
+		return null
+	return monster_spawner
 
 
 func is_boss_prison_unlocked() -> bool:
@@ -467,6 +477,27 @@ func spawn_enemy(enemy: DungeonEnemy, cell: Vector2i) -> DungeonEnemy:
 	enemies.append(enemy)
 	_refresh_visibility()
 	return enemy
+
+
+func get_available_monster_spawn_cells(blocked_cell: Vector2i) -> Array[Vector2i]:
+	var available_cells: Array[Vector2i] = []
+	for y: int in range(GRID_HEIGHT):
+		for x: int in range(GRID_WIDTH):
+			var cell: Vector2i = Vector2i(x, y)
+			if (
+				is_walkable(cell)
+				and is_cell_on_side(cell, monster_spawn_side)
+				and cell != start_cell
+				and cell != exit_cell
+				and cell != blocked_cell
+				and cell != hireling_cell
+				and not prison_room.has_point(cell)
+				and not vendor_room.has_point(cell)
+				and get_entity_at(cell) == null
+				and not _has_pickup_at(cell)
+			):
+				available_cells.append(cell)
+	return available_cells
 
 
 func spawn_hit_effect(cell: Vector2i, damage_hearts: int, effect_color: Color) -> void:
@@ -861,6 +892,26 @@ func _spawn_enemies() -> void:
 	if not candidate_cells.is_empty():
 		var lich_cell: Vector2i = _take_random_candidate(candidate_cells)
 		spawn_enemy(LichEnemy.new(), lich_cell)
+
+
+func _spawn_monster_spawner() -> void:
+	if monster_spawner != null and is_instance_valid(monster_spawner):
+		return
+	if not is_walkable(exit_cell) or get_entity_at(exit_cell) != null:
+		return
+
+	monster_spawner = MonsterSpawner.new()
+	monster_spawner.setup(self, exit_cell)
+	add_child(monster_spawner)
+
+
+func _clear_monster_spawner() -> void:
+	if monster_spawner == null or not is_instance_valid(monster_spawner):
+		monster_spawner = null
+		return
+	unregister_entity(monster_spawner)
+	monster_spawner.queue_free()
+	monster_spawner = null
 
 
 func _clear_enemies() -> void:

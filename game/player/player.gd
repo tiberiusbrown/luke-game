@@ -89,7 +89,7 @@ func is_player_entity() -> bool:
 
 
 func _can_attack_target(target: DungeonEntity) -> bool:
-	return target is DungeonEnemy
+	return target is DungeonEnemy or target is MonsterSpawner
 
 
 func heal(healing_hearts: int) -> int:

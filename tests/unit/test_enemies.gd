@@ -129,6 +129,18 @@ func test_cyclopes_is_a_boss_with_thirty_hearts_and_heavy_attacks() -> void:
 	assert_gt(cyclopes.speed, player.speed)
 
 
+func test_monster_spawner_has_one_hundred_hearts_and_spawns_ten_monsters() -> void:
+	var spawner: MonsterSpawner = dungeon_level.get_monster_spawner()
+	var initial_enemy_count: int = dungeon_level.enemies.size()
+
+	assert_not_null(spawner)
+	assert_eq(spawner.health.max_hearts, 100)
+	assert_eq(MonsterSpawner.SPAWN_INTERVAL, 5.0)
+	assert_eq(MonsterSpawner.MONSTERS_PER_SPAWN, 10)
+	assert_eq(spawner.spawn_monsters(), 10)
+	assert_eq(dungeon_level.enemies.size(), initial_enemy_count + 10)
+
+
 func test_cyclopes_deals_four_hearts_when_its_attack_hits() -> void:
 	var cyclopes: CyclopesEnemy = CyclopesEnemy.new()
 	cyclopes.hit_chance = 1.0
