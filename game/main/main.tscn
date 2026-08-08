@@ -289,7 +289,7 @@ offset_right = 530.0
 offset_bottom = 84.0
 theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
 theme_override_font_sizes/font_size = 12
-text = "LEFT/RIGHT SIDE    UP/DOWN SELECT    ENTER EXCHANGE    ESC CLOSE"
+text = "ANCIENT COINS ONLY    ARROWS SELECT    ENTER TRADE    ESC CLOSE"
 
 [node name="Divider" type="ColorRect" parent="Hud/VendorPanel"]
 offset_left = 30.0
@@ -325,7 +325,7 @@ offset_right = 260.0
 offset_bottom = 430.0
 theme_override_colors/font_color = Color(0.82, 0.87, 0.94, 1)
 theme_override_font_sizes/font_size = 15
-autowrap_mode = 2
+clip_text = true
 text = "NO ITEMS"
 
 [node name="VendorStockLabel" type="Label" parent="Hud/VendorPanel"]
@@ -336,7 +336,7 @@ offset_right = 530.0
 offset_bottom = 430.0
 theme_override_colors/font_color = Color(0.82, 0.87, 0.94, 1)
 theme_override_font_sizes/font_size = 15
-autowrap_mode = 2
+clip_text = true
 text = "NO ITEMS"
 
 [node name="SelectedSideLabel" type="Label" parent="Hud/VendorPanel"]
@@ -358,7 +358,7 @@ offset_bottom = 528.0
 theme_override_colors/font_color = Color(0.84, 0.66, 0.37, 1)
 theme_override_font_sizes/font_size = 13
 autowrap_mode = 2
-text = "ONE ITEM FOR ONE ITEM"
+text = "ONE ANCIENT COIN FOR ONE ITEM"
 
 [node name="StatusLog" type="Panel" parent="Hud"]
 unique_name_in_owner = true

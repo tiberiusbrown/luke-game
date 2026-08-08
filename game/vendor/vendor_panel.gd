@@ -4,6 +4,8 @@ extends Panel
 signal trade_completed(offered_name: String, received_name: String)
 signal close_requested
 
+const MAX_VISIBLE_ENTRIES: int = 8
+
 @onready var player_offer_label: Label = %PlayerOfferLabel
 @onready var vendor_stock_label: Label = %VendorStockLabel
 @onready var selected_side_label: Label = %SelectedSideLabel
@@ -16,20 +18,20 @@ var _vendor_entries: Array[Dictionary] = []
 var _selected_side: int = 0
 var _player_selected_index: int = 0
 var _vendor_selected_index: int = 0
-var _status_message: String = "ONE ITEM FOR ONE ITEM"
+var _status_message: String = "ONE ANCIENT COIN FOR ONE ITEM"
 
 
 func show_vendor(vendor: DungeonVendor, player_inventory: PlayerInventory) -> void:
 	_vendor = vendor
 	_player_inventory = player_inventory
 	_selected_side = 0
-	_status_message = "ONE ITEM FOR ONE ITEM"
+	_status_message = "ONE ANCIENT COIN FOR ONE ITEM"
 	visible = true
 	refresh()
 
 
 func refresh() -> void:
-	_player_entries = _player_inventory.get_trade_entries() if _player_inventory != null else []
+	_player_entries = _get_currency_entries(_player_inventory)
 	_vendor_entries = _vendor.inventory.get_trade_entries() if _vendor != null else []
 	_player_selected_index = _clamp_index(_player_selected_index, _player_entries.size())
 	_vendor_selected_index = _clamp_index(_vendor_selected_index, _vendor_entries.size())
@@ -76,7 +78,7 @@ func _exchange_selected() -> void:
 	if _vendor == null or _player_inventory == null:
 		return
 	if _player_entries.is_empty():
-		_set_status("YOU HAVE NOTHING TO OFFER")
+		_set_status("YOU NEED ANCIENT COINS TO TRADE")
 		return
 	if _vendor_entries.is_empty():
 		_set_status("ROOK HAS NOTHING LEFT TO TRADE")
@@ -97,8 +99,18 @@ func _exchange_selected() -> void:
 
 
 func _update_labels() -> void:
-	player_offer_label.text = _format_entries(_player_entries, _player_selected_index, _selected_side == 0)
-	vendor_stock_label.text = _format_entries(_vendor_entries, _vendor_selected_index, _selected_side == 1)
+	player_offer_label.text = _format_entries(
+		_player_entries,
+		_player_selected_index,
+		_selected_side == 0,
+		true,
+	)
+	vendor_stock_label.text = _format_entries(
+		_vendor_entries,
+		_vendor_selected_index,
+		_selected_side == 1,
+		false,
+	)
 
 	var selected_entry: Dictionary = _get_selected_entries()[0]
 	var selected_name: String = _get_entry_name(selected_entry)
@@ -114,12 +126,23 @@ func _format_entries(
 	entries: Array[Dictionary],
 	selected_index: int,
 	is_selected_side: bool,
+	is_player_list: bool,
 ) -> String:
 	if entries.is_empty():
-		return "NO ITEMS"
+		return "NO ANCIENT COINS" if is_player_list else "NO ITEMS"
 
 	var lines: PackedStringArray = PackedStringArray()
-	for entry_index: int in range(entries.size()):
+	var visible_start: int = 0
+	if entries.size() > MAX_VISIBLE_ENTRIES:
+		visible_start = clampi(
+			selected_index - MAX_VISIBLE_ENTRIES + 1,
+			0,
+			entries.size() - MAX_VISIBLE_ENTRIES,
+		)
+	var visible_end: int = mini(visible_start + MAX_VISIBLE_ENTRIES, entries.size())
+	if visible_start > 0:
+		lines.append("  ...")
+	for entry_index: int in range(visible_start, visible_end):
 		var entry: Dictionary = entries[entry_index]
 		var marker: String = ">" if is_selected_side and entry_index == selected_index else " "
 		var entry_name: String = _get_entry_name(entry).to_upper()
@@ -129,7 +152,19 @@ func _format_entries(
 			lines.append("%s %s  %d HEARTS/HIT" % [marker, entry_name, weapon.attack_damage])
 		else:
 			lines.append("%s %s" % [marker, entry_name])
+	if visible_end < entries.size():
+		lines.append("  ...")
 	return "\n".join(lines)
+
+
+func _get_currency_entries(inventory: PlayerInventory) -> Array[Dictionary]:
+	var currency_entries: Array[Dictionary] = []
+	if inventory == null:
+		return currency_entries
+	for entry: Dictionary in inventory.get_trade_entries():
+		if DungeonVendor.is_currency_entry(entry):
+			currency_entries.append(entry)
+	return currency_entries
 
 
 func _get_selected_entries() -> Array[Dictionary]:

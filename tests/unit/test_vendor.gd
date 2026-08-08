@@ -10,7 +10,7 @@ func before_each() -> void:
 	player_inventory = PlayerInventory.new()
 
 
-func test_exchange_swaps_a_regular_item_for_vendor_stock() -> void:
+func test_exchange_accepts_an_ancient_coin_for_vendor_stock() -> void:
 	player_inventory.add_item("Ancient Coin")
 	var offered_entry: Dictionary = player_inventory.get_trade_entries()[0]
 	var requested_entry: Dictionary = vendor.inventory.get_trade_entries()[0]
@@ -22,20 +22,28 @@ func test_exchange_swaps_a_regular_item_for_vendor_stock() -> void:
 	assert_eq(vendor.inventory.get_item_count("Amber Potion"), 0)
 
 
-func test_exchange_handles_weapons_and_unwields_an_offered_weapon() -> void:
+func test_exchange_rejects_regular_items() -> void:
+	player_inventory.add_item("Amber Potion")
+	var offered_entry: Dictionary = player_inventory.get_trade_entries()[0]
+	var requested_entry: Dictionary = vendor.inventory.get_trade_entries()[0]
+
+	assert_false(vendor.exchange(player_inventory, offered_entry, requested_entry))
+	assert_eq(player_inventory.get_item_count("Amber Potion"), 1)
+	assert_eq(vendor.inventory.get_item_count("Amber Potion"), 1)
+
+
+func test_exchange_rejects_weapons() -> void:
 	var offered_weapon: WeaponData = WeaponData.new("Bone Axe", 3)
 	player_inventory.add_weapon(offered_weapon)
 	assert_true(player_inventory.wield_weapon(offered_weapon))
 
 	var offered_entry: Dictionary = player_inventory.get_trade_entries()[0]
-	var requested_entry: Dictionary = vendor.inventory.get_trade_entries()[2]
-	var requested_name: String = str(requested_entry["item_name"])
+	var requested_entry: Dictionary = vendor.inventory.get_trade_entries()[0]
 
-	assert_true(vendor.exchange(player_inventory, offered_entry, requested_entry))
-	assert_null(player_inventory.get_equipped_weapon())
-	assert_eq(player_inventory.get_item_count("Bone Axe"), 0)
-	assert_eq(player_inventory.get_item_count(requested_name), 1)
-	assert_eq(vendor.inventory.get_item_count("Bone Axe"), 1)
+	assert_false(vendor.exchange(player_inventory, offered_entry, requested_entry))
+	assert_not_null(player_inventory.get_equipped_weapon())
+	assert_eq(player_inventory.get_item_count("Bone Axe"), 1)
+	assert_eq(vendor.inventory.get_item_count("Bone Axe"), 0)
 
 
 func test_invalid_exchange_does_not_remove_player_item() -> void:

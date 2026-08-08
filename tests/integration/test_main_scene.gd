@@ -263,7 +263,7 @@ func test_main_scene_contains_a_dedicated_vendor_room() -> void:
 	assert_true(dungeon_level.get_vendor_room().has_point(vendor.cell))
 	assert_ne(vendor.cell, dungeon_level.get_start_cell())
 	assert_ne(vendor.cell, dungeon_level.get_exit_cell())
-	assert_eq(vendor.inventory.get_total_item_count(), 3)
+	assert_eq(vendor.inventory.get_total_item_count(), 8)
 
 
 func test_vendor_opens_when_player_presses_e_while_adjacent() -> void:
@@ -348,6 +348,8 @@ func test_vendor_panel_keeps_the_offer_prompt_below_a_full_player_inventory() ->
 				int(weapon_definition["damage"]),
 			)
 		)
+	for _coin_index: int in range(20):
+		player.inventory.add_item("Ancient Coin")
 
 	vendor_panel.show_vendor(vendor, player.inventory)
 	await get_tree().process_frame

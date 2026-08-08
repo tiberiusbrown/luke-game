@@ -2,6 +2,19 @@ class_name DungeonVendor
 extends Node2D
 
 const VENDOR_NAME: String = "Rook the Broker"
+const TRADE_CURRENCY: String = "Ancient Coin"
+const VENDOR_ITEM_STOCK: Array[String] = [
+	"Amber Potion",
+	"Crystal Shard",
+	"Moonleaf Tonic",
+	"Sunstone",
+]
+const VENDOR_WEAPON_STOCK: Array[Dictionary] = [
+	{"name": "Moonsteel Blade", "damage": 3},
+	{"name": "Iron Mace", "damage": 2},
+	{"name": "Shadow Dagger", "damage": 2},
+	{"name": "Thunder Hammer", "damage": 3},
+]
 
 var cell: Vector2i = Vector2i.ZERO
 var dungeon_level: DungeonLevel = null
@@ -11,9 +24,15 @@ var is_lit: bool = false
 
 
 func _init() -> void:
-	inventory.add_item("Amber Potion")
-	inventory.add_item("Crystal Shard")
-	inventory.add_weapon(WeaponData.new("Moonsteel Blade", 3))
+	for item_name: String in VENDOR_ITEM_STOCK:
+		inventory.add_item(item_name)
+	for weapon_definition: Dictionary in VENDOR_WEAPON_STOCK:
+		inventory.add_weapon(
+			WeaponData.new(
+				str(weapon_definition["name"]),
+				int(weapon_definition["damage"]),
+			)
+		)
 
 
 func _ready() -> void:
@@ -49,6 +68,8 @@ func exchange(
 ) -> bool:
 	if player_inventory == null:
 		return false
+	if not is_currency_entry(offered_entry):
+		return false
 	if not player_inventory.has_trade_entry(offered_entry):
 		return false
 	if not inventory.has_trade_entry(requested_entry):
@@ -63,6 +84,11 @@ func exchange(
 	player_inventory.add_trade_entry(requested_entry)
 	inventory.add_trade_entry(offered_entry)
 	return true
+
+
+static func is_currency_entry(entry: Dictionary) -> bool:
+	var weapon_value: Variant = entry.get("weapon", null)
+	return weapon_value == null and str(entry.get("item_name", "")).strip_edges() == TRADE_CURRENCY
 
 
 func _draw() -> void:
