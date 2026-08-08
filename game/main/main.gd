@@ -24,6 +24,9 @@ const POSITION_LABEL_WIDTH: float = 144.0
 @onready var game_over_message_label: Label = $Hud/GameOverPanel/MessageLabel
 @onready var hireling_prompt_panel: Panel = $Hud/HirelingPromptPanel
 @onready var hireling_prompt_label: Label = $Hud/HirelingPromptPanel/PromptLabel
+@onready var tutorial_overlay: Control = $Hud/TutorialOverlay
+@onready var tutorial_panel: Panel = $Hud/TutorialOverlay/TutorialPanel
+@onready var begin_button: Button = $Hud/TutorialOverlay/TutorialPanel/BeginButton
 
 
 func _ready() -> void:
@@ -40,6 +43,7 @@ func _ready() -> void:
 	dungeon_level.combat_event.connect(_on_combat_event)
 	vendor_panel.trade_completed.connect(_on_vendor_trade_completed)
 	vendor_panel.close_requested.connect(_on_vendor_panel_close_requested)
+	begin_button.pressed.connect(_on_begin_button_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	var active_player: DungeonEntity = dungeon_level.get_player()
 	health_bar.bind_health(active_player.health if active_player != null else player.health)
@@ -48,6 +52,7 @@ func _ready() -> void:
 	status_log.add_message("You enter the dungeon")
 	_layout_ui()
 	position_label.text = _get_position_text()
+	begin_button.grab_focus()
 
 
 func _process(_delta: float) -> void:
@@ -66,6 +71,7 @@ func _layout_ui() -> void:
 
 	background.position = Vector2.ZERO
 	background.size = viewport_size
+	tutorial_overlay.position = Vector2.ZERO
 	top_bar.position = Vector2.ZERO
 	top_bar.size = Vector2(viewport_size.x, TOP_BAR_HEIGHT)
 
@@ -98,6 +104,7 @@ func _layout_ui() -> void:
 	_center_panel(vendor_panel, map_area)
 	_center_panel(game_over_panel, map_area)
 	_position_hireling_prompt(map_area)
+	_center_tutorial_panel(viewport_size)
 
 	var position_left: float = maxf(
 		LAYOUT_MARGIN,
@@ -113,6 +120,15 @@ func _layout_ui() -> void:
 func _center_panel(panel: Control, area: Rect2) -> void:
 	var centered_position: Vector2 = area.position + (area.size - panel.size) * 0.5
 	panel.position = centered_position
+
+
+func _center_tutorial_panel(viewport_size: Vector2) -> void:
+	var panel_size: Vector2 = Vector2(
+		minf(600.0, maxf(320.0, viewport_size.x - 32.0)),
+		minf(500.0, maxf(400.0, viewport_size.y - 32.0)),
+	)
+	tutorial_panel.size = panel_size
+	tutorial_panel.position = (viewport_size - panel_size) * 0.5
 
 
 func _position_hireling_prompt(area: Rect2) -> void:
@@ -144,6 +160,15 @@ func _unhandled_input(event: InputEvent) -> void:
 func _handle_key_event(event: InputEvent) -> void:
 	var key_event: InputEventKey = event as InputEventKey
 	if key_event == null:
+		return
+	if tutorial_overlay.visible:
+		if key_event.pressed and not key_event.echo and (
+			_is_key(key_event, KEY_ENTER)
+			or _is_key(key_event, KEY_KP_ENTER)
+			or _is_key(key_event, KEY_SPACE)
+		):
+			_on_begin_button_pressed()
+		get_viewport().set_input_as_handled()
 		return
 	if game_over_panel.visible:
 		get_viewport().set_input_as_handled()
@@ -248,6 +273,12 @@ func _on_game_over() -> void:
 		else "You have fallen."
 	)
 	game_over_panel.visible = true
+
+
+func _on_begin_button_pressed() -> void:
+	tutorial_overlay.visible = false
+	begin_button.release_focus()
+	status_log.add_message("Find the key, unlock the Boss Prison, and defeat the Cyclopes")
 
 
 func _get_active_player() -> DungeonEntity:

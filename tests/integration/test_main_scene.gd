@@ -8,6 +8,28 @@ func before_each() -> void:
 	main_scene = packed_scene.instantiate() as Node2D
 	add_child_autofree(main_scene)
 	await get_tree().process_frame
+	var begin_event: InputEventKey = InputEventKey.new()
+	begin_event.keycode = KEY_ENTER
+	begin_event.pressed = true
+	main_scene._input(begin_event)
+	await get_tree().process_frame
+
+
+func test_main_scene_shows_and_dismisses_the_tutorial() -> void:
+	var packed_scene: PackedScene = load("res://game/main/main.tscn")
+	var fresh_scene: Node2D = packed_scene.instantiate() as Node2D
+	add_child_autofree(fresh_scene)
+	await get_tree().process_frame
+
+	var tutorial_overlay: Control = fresh_scene.get_node("%TutorialOverlay") as Control
+	assert_true(tutorial_overlay.visible)
+
+	var begin_event: InputEventKey = InputEventKey.new()
+	begin_event.keycode = KEY_ENTER
+	begin_event.pressed = true
+	fresh_scene._input(begin_event)
+
+	assert_false(tutorial_overlay.visible)
 
 
 func test_main_scene_displays_position_hud() -> void:
