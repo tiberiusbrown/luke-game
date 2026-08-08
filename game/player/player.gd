@@ -6,6 +6,8 @@ const BASE_ATTACK_DAMAGE: int = 1
 const HIT_CHANCE: float = 0.80
 const SPEED: float = 1.0
 
+signal healing_item_used(item_name: String, healing_hearts: int)
+
 var inventory: PlayerInventory = PlayerInventory.new()
 var hit_chance: float = HIT_CHANCE
 var is_controlled: bool = true
@@ -53,6 +55,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 
+	if _is_key(key_event, KEY_R):
+		use_first_healing_item()
+		get_viewport().set_input_as_handled()
+		return
+
 	var direction: Vector2i = _get_direction_for_key(key_event)
 	if direction != Vector2i.ZERO:
 		if dungeon_level.get_vendor_at(active_player.current_cell + direction) != null:
@@ -96,6 +103,18 @@ func heal(healing_hearts: int) -> int:
 	return health.heal(healing_hearts)
 
 
+func use_first_healing_item() -> int:
+	for healing_item: HealingItemData in inventory.get_healing_items():
+		var healed_hearts: int = heal(healing_item.healing_hearts)
+		if healed_hearts <= 0:
+			continue
+		if not inventory.remove_healing_item(healing_item):
+			return 0
+		healing_item_used.emit(healing_item.item_name, healed_hearts)
+		return healed_hearts
+	return 0
+
+
 func _after_move() -> void:
 	_collect_item_at_current_cell()
 
@@ -109,6 +128,8 @@ func _collect_item_at_current_cell() -> void:
 		return
 	if pickup.weapon_data != null:
 		inventory.add_weapon(pickup.weapon_data)
+	elif pickup.healing_item_data != null:
+		inventory.add_healing_item(pickup.healing_item_data)
 	else:
 		inventory.add_item(pickup.item_name)
 

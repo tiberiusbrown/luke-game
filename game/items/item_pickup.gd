@@ -5,14 +5,21 @@ extends Node2D
 
 var cell: Vector2i = Vector2i.ZERO
 var weapon_data: WeaponData = null
+var healing_item_data: HealingItemData = null
 var is_known: bool = false
 var is_lit: bool = false
 
 
-func setup(new_item_name: String, new_cell: Vector2i, new_weapon_data: WeaponData = null) -> void:
+func setup(
+	new_item_name: String,
+	new_cell: Vector2i,
+	new_weapon_data: WeaponData = null,
+	new_healing_item_data: HealingItemData = null,
+) -> void:
 	item_name = new_item_name
 	cell = new_cell
 	weapon_data = new_weapon_data
+	healing_item_data = new_healing_item_data
 	position = Vector2(
 		(float(cell.x) + 0.5) * DungeonLevel.TILE_SIZE,
 		(float(cell.y) + 0.5) * DungeonLevel.TILE_SIZE
@@ -49,8 +56,10 @@ func _draw() -> void:
 
 	if weapon_data != null:
 		_draw_weapon(item_color)
-	elif item_name == "Amber Potion":
+	elif healing_item_data != null:
 		draw_circle(Vector2.ZERO, 3.0, item_color.lightened(0.35))
+		draw_line(Vector2(-4, 0), Vector2(4, 0), item_color.lightened(0.45), 1.5)
+		draw_line(Vector2(0, -4), Vector2(0, 4), item_color.lightened(0.45), 1.5)
 	elif item_name == "Ancient Coin":
 		draw_circle(Vector2.ZERO, 3.0, item_color.lightened(0.35))
 		draw_line(Vector2(-2, 0), Vector2(2, 0), item_color.darkened(0.2), 1.5)
@@ -74,6 +83,14 @@ func _get_item_color() -> Color:
 	match item_name:
 		"Amber Potion":
 			return Color("#d87853")
+		"Moonleaf Tonic":
+			return Color("#72b58b")
+		"Sunstone":
+			return Color("#e2b45b")
+		"Crimson Draught":
+			return Color("#bd536b")
+		"Heartroot Poultice":
+			return Color("#a97054")
 		"Ancient Coin":
 			return Color("#d6a85f")
 		"Crystal Shard":

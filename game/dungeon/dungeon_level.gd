@@ -21,8 +21,15 @@ const LIGHT_RADIUS: int = 5
 const ROOM_COUNT: int = 24
 const WALL: int = 0
 const FLOOR: int = 1
-const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shard"]
-const ITEM_COUNT: int = 3
+const ITEM_NAMES: Array[String] = ["Ancient Coin", "Crystal Shard"]
+const ITEM_COUNT: int = 2
+const HEALING_ITEM_NAMES: Array[String] = [
+	"Amber Potion",
+	"Moonleaf Tonic",
+	"Sunstone",
+	"Crimson Draught",
+	"Heartroot Poultice",
+]
 const ANCIENT_COIN_COUNT: int = 24
 const HIRELING_COST: int = 5
 const MONSTER_COUNT: int = 16
@@ -610,7 +617,7 @@ func _spawn_pickup(item_name: String, cell: Vector2i, weapon: WeaponData = null)
 		return null
 
 	var pickup: ItemPickup = ItemPickup.new()
-	pickup.setup(item_name, cell, weapon)
+	pickup.setup(item_name, cell, weapon, HealingItemData.from_name(item_name))
 	add_child(pickup)
 	pickups.append(pickup)
 	_refresh_visibility()
@@ -907,6 +914,11 @@ func _spawn_items() -> void:
 	for item_index in range(item_count):
 		var cell: Vector2i = _take_random_candidate(candidate_cells)
 		spawn_pickup(ITEM_NAMES[item_index % ITEM_NAMES.size()], cell)
+
+	var healing_item_count: int = mini(HEALING_ITEM_NAMES.size(), candidate_cells.size())
+	for healing_item_index in range(healing_item_count):
+		var healing_item_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_pickup(HEALING_ITEM_NAMES[healing_item_index], healing_item_cell)
 
 	var coin_count: int = mini(ANCIENT_COIN_COUNT, candidate_cells.size())
 	for _coin_index in range(coin_count):

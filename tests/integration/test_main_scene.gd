@@ -263,7 +263,7 @@ func test_main_scene_contains_a_dedicated_vendor_room() -> void:
 	assert_true(dungeon_level.get_vendor_room().has_point(vendor.cell))
 	assert_ne(vendor.cell, dungeon_level.get_start_cell())
 	assert_ne(vendor.cell, dungeon_level.get_exit_cell())
-	assert_eq(vendor.inventory.get_total_item_count(), 8)
+	assert_eq(vendor.inventory.get_total_item_count(), 10)
 
 
 func test_vendor_opens_when_player_presses_e_while_adjacent() -> void:

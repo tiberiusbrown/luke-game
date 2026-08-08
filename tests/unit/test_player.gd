@@ -98,6 +98,26 @@ func test_player_takes_damage_in_hearts_and_cannot_move_when_depleted() -> void:
 	assert_false(player.try_move(Vector2i(1, 0)))
 
 
+func test_r_uses_a_healing_item_and_consumes_it() -> void:
+	player.take_damage(6)
+	player.inventory.add_item("Crimson Draught")
+
+	var key_event: InputEventKey = InputEventKey.new()
+	key_event.keycode = KEY_R
+	key_event.pressed = true
+	player._unhandled_input(key_event)
+
+	assert_eq(player.health.current_hearts, 9)
+	assert_eq(player.inventory.get_item_count("Crimson Draught"), 0)
+
+
+func test_healing_item_is_not_consumed_at_full_health() -> void:
+	player.inventory.add_item("Amber Potion")
+
+	assert_eq(player.use_first_healing_item(), 0)
+	assert_eq(player.inventory.get_item_count("Amber Potion"), 1)
+
+
 func test_moving_onto_a_weapon_pickup_does_not_wield_it() -> void:
 	dungeon_level.clear_pickups()
 	var weapon: WeaponData = WeaponData.new("Bone Axe", 3)

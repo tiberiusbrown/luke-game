@@ -8,6 +8,8 @@ const VENDOR_ITEM_STOCK: Array[String] = [
 	"Crystal Shard",
 	"Moonleaf Tonic",
 	"Sunstone",
+	"Crimson Draught",
+	"Heartroot Poultice",
 ]
 const VENDOR_WEAPON_STOCK: Array[Dictionary] = [
 	{"name": "Moonsteel Blade", "damage": 3},

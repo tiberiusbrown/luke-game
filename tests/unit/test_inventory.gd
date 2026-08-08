@@ -23,6 +23,25 @@ func test_blank_item_names_are_not_added() -> void:
 	assert_true(inventory.is_empty())
 
 
+func test_healing_items_store_their_healing_values() -> void:
+	inventory.add_item("Amber Potion")
+	inventory.add_item("Heartroot Poultice")
+
+	var healing_items: Array[HealingItemData] = inventory.get_healing_items()
+	assert_eq(healing_items.size(), 2)
+	assert_eq(healing_items[0].healing_hearts, 2)
+	assert_eq(healing_items[1].healing_hearts, 7)
+
+
+func test_removing_a_healing_item_removes_it_from_inventory() -> void:
+	inventory.add_item("Moonleaf Tonic")
+	var healing_item: HealingItemData = inventory.get_healing_item("Moonleaf Tonic")
+
+	assert_true(inventory.remove_healing_item(healing_item))
+	assert_eq(inventory.get_item_count("Moonleaf Tonic"), 0)
+	assert_true(inventory.get_healing_items().is_empty())
+
+
 func test_weapon_is_stored_without_being_wielded() -> void:
 	var weapon: WeaponData = WeaponData.new("Bone Axe", 3)
 	inventory.add_weapon(weapon)

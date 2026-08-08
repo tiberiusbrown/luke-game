@@ -8,6 +8,7 @@ signal weapon_unwielded(weapon: WeaponData)
 
 var _items: Array[String] = []
 var _regular_items: Array[String] = []
+var _healing_items: Array[HealingItemData] = []
 var _weapons: Array[WeaponData] = []
 var equipped_weapon: WeaponData = null
 
@@ -17,8 +18,23 @@ func add_item(item_name: String) -> void:
 	if normalized_name.is_empty():
 		return
 
+	var healing_item: HealingItemData = HealingItemData.from_name(normalized_name)
+	if healing_item != null:
+		add_healing_item(healing_item)
+		return
+
 	_items.append(normalized_name)
 	_regular_items.append(normalized_name)
+	inventory_changed.emit()
+
+
+func add_healing_item(healing_item: HealingItemData) -> void:
+	if healing_item == null or healing_item.item_name.is_empty():
+		return
+
+	_healing_items.append(healing_item)
+	_items.append(healing_item.item_name)
+	_regular_items.append(healing_item.item_name)
 	inventory_changed.emit()
 
 
@@ -51,6 +67,20 @@ func get_weapons() -> Array[WeaponData]:
 	for weapon: WeaponData in _weapons:
 		weapons.append(weapon)
 	return weapons
+
+
+func get_healing_items() -> Array[HealingItemData]:
+	var healing_items: Array[HealingItemData] = []
+	for healing_item: HealingItemData in _healing_items:
+		healing_items.append(healing_item)
+	return healing_items
+
+
+func get_healing_item(item_name: String) -> HealingItemData:
+	for healing_item: HealingItemData in _healing_items:
+		if healing_item.item_name == item_name:
+			return healing_item
+	return null
 
 
 func get_trade_entries() -> Array[Dictionary]:
@@ -132,6 +162,24 @@ func remove_item(item_name: String) -> bool:
 
 	_regular_items.remove_at(item_index)
 	_remove_first_item_name(normalized_name)
+	_remove_first_healing_item_named(normalized_name)
+	inventory_changed.emit()
+	return true
+
+
+func remove_healing_item(healing_item: HealingItemData) -> bool:
+	if healing_item == null:
+		return false
+
+	var healing_item_index: int = _healing_items.find(healing_item)
+	if healing_item_index < 0:
+		return false
+
+	_healing_items.remove_at(healing_item_index)
+	var regular_item_index: int = _regular_items.find(healing_item.item_name)
+	if regular_item_index >= 0:
+		_regular_items.remove_at(regular_item_index)
+	_remove_first_item_name(healing_item.item_name)
 	inventory_changed.emit()
 	return true
 
@@ -205,3 +253,10 @@ func _remove_first_item_name(item_name: String) -> void:
 	var item_index: int = _items.find(item_name)
 	if item_index >= 0:
 		_items.remove_at(item_index)
+
+
+func _remove_first_healing_item_named(item_name: String) -> void:
+	for index: int in range(_healing_items.size()):
+		if _healing_items[index].item_name == item_name:
+			_healing_items.remove_at(index)
+			return

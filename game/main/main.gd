@@ -45,6 +45,7 @@ func _ready() -> void:
 	dungeon_level.game_over.connect(_on_game_over)
 	player.inventory.weapon_wielded.connect(_on_weapon_wielded)
 	player.inventory.weapon_unwielded.connect(_on_weapon_unwielded)
+	player.healing_item_used.connect(_on_healing_item_used)
 	dungeon_level.combat_event.connect(_on_combat_event)
 	vendor_panel.trade_completed.connect(_on_vendor_trade_completed)
 	vendor_panel.close_requested.connect(_on_vendor_panel_close_requested)
@@ -255,6 +256,10 @@ func _on_weapon_wielded(weapon: WeaponData) -> void:
 
 func _on_weapon_unwielded(weapon: WeaponData) -> void:
 	status_log.add_message("You unwield the %s" % weapon.weapon_name)
+
+
+func _on_healing_item_used(item_name: String, healing_hearts: int) -> void:
+	status_log.add_message("You use %s and recover %d hearts" % [item_name, healing_hearts])
 
 
 func _on_combat_event(message: String) -> void:

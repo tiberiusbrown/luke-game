@@ -116,7 +116,7 @@ offset_right = 500.0
 offset_bottom = 58.0
 theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
 theme_override_font_sizes/font_size = 12
-text = "ARROWS MOVE/ATTACK  |  E INTERACT  |  I PACK  |  W WIELD  |  H HOME"
+text = "ARROWS MOVE/ATTACK  |  E INTERACT  |  R HEAL  |  I PACK  |  W WIELD  |  H HOME"
 
 [node name="HealthLabel" type="Label" parent="Hud"]
 offset_left = 500.0
