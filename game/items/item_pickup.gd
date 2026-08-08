@@ -58,6 +58,11 @@ func _draw() -> void:
 		draw_circle(Vector2(-2, -2), 2.5, item_color.lightened(0.35))
 		draw_line(Vector2(0, 0), Vector2(6, 6), item_color.lightened(0.25), 2.0)
 		draw_line(Vector2(3, 4), Vector2(6, 2), item_color.darkened(0.2), 1.5)
+	elif item_name == DungeonLevel.SKULL_ITEM_NAME:
+		draw_circle(Vector2.ZERO, 4.5, item_color.lightened(0.3))
+		draw_circle(Vector2(-2, -1), 1.2, item_color.darkened(0.45))
+		draw_circle(Vector2(2, -1), 1.2, item_color.darkened(0.45))
+		draw_rect(Rect2(-2.5, 3.0, 5.0, 2.5), item_color.lightened(0.15))
 	else:
 		draw_line(Vector2(-3, -3), Vector2(3, 3), item_color.lightened(0.35), 2.0)
 		draw_line(Vector2(3, -3), Vector2(-3, 3), item_color.lightened(0.35), 2.0)
@@ -75,6 +80,8 @@ func _get_item_color() -> Color:
 			return Color("#68a7d8")
 		DungeonLevel.BOSS_PRISON_KEY:
 			return Color("#e85f70")
+		DungeonLevel.SKULL_ITEM_NAME:
+			return Color("#d7d9d2")
 		_:
 			return Color("#a68bd4")
 

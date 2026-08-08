@@ -1,9 +1,5 @@
 extends Node2D
 
-const MAP_SIZE: Vector2 = Vector2(
-	DungeonLevel.GRID_WIDTH * DungeonLevel.TILE_SIZE,
-	DungeonLevel.GRID_HEIGHT * DungeonLevel.TILE_SIZE,
-)
 const TOP_BAR_HEIGHT: float = 64.0
 const LAYOUT_MARGIN: float = 16.0
 const PANEL_GAP: float = 16.0
@@ -27,9 +23,18 @@ const POSITION_LABEL_WIDTH: float = 144.0
 @onready var tutorial_overlay: Control = $Hud/TutorialOverlay
 @onready var tutorial_panel: Panel = $Hud/TutorialOverlay/TutorialPanel
 @onready var begin_button: Button = $Hud/TutorialOverlay/TutorialPanel/BeginButton
+@onready var home_panel: Panel = $Hud/HomePanel
+@onready var return_to_game_button: Button = $Hud/HomePanel/ReturnToGameButton
+@onready var impossible_trial_button: Button = $Hud/HomePanel/ImpossibleTrialButton
+
+var active_dungeon_level: DungeonLevel
+var trial_level: DungeonLevel = null
+var _trial_return_cell: Vector2i = Vector2i.ZERO
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	active_dungeon_level = dungeon_level
 	set_process_input(true)
 	player.inventory.inventory_changed.connect(_on_inventory_changed)
 	dungeon_level.item_collected.connect(_on_item_collected)
@@ -44,12 +49,15 @@ func _ready() -> void:
 	vendor_panel.trade_completed.connect(_on_vendor_trade_completed)
 	vendor_panel.close_requested.connect(_on_vendor_panel_close_requested)
 	begin_button.pressed.connect(_on_begin_button_pressed)
+	return_to_game_button.pressed.connect(_on_return_to_game_button_pressed)
+	impossible_trial_button.pressed.connect(_on_impossible_trial_button_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	var active_player: DungeonEntity = dungeon_level.get_player()
 	health_bar.bind_health(active_player.health if active_player != null else player.health)
 	inventory_panel.refresh(player.inventory)
 	wield_panel.refresh(player.inventory)
 	status_log.add_message("You enter the dungeon")
+	_update_trial_button_state()
 	_layout_ui()
 	position_label.text = _get_position_text()
 	begin_button.grab_focus()
@@ -92,17 +100,19 @@ func _layout_ui() -> void:
 			maxf(1.0, status_bottom - status_top),
 		),
 	)
+	var map_size: Vector2 = active_dungeon_level.get_map_size()
 	var map_scale: float = minf(
-		map_area.size.x / MAP_SIZE.x,
-		map_area.size.y / MAP_SIZE.y,
+		map_area.size.x / map_size.x,
+		map_area.size.y / map_size.y,
 	)
-	var scaled_map_size: Vector2 = MAP_SIZE * map_scale
-	dungeon_level.scale = Vector2.ONE * map_scale
-	dungeon_level.position = map_area.position + (map_area.size - scaled_map_size) * 0.5
+	var scaled_map_size: Vector2 = map_size * map_scale
+	active_dungeon_level.scale = Vector2.ONE * map_scale
+	active_dungeon_level.position = map_area.position + (map_area.size - scaled_map_size) * 0.5
 	_center_panel(inventory_panel, map_area)
 	_center_panel(wield_panel, map_area)
 	_center_panel(vendor_panel, map_area)
 	_center_panel(game_over_panel, map_area)
+	_center_panel(home_panel, map_area)
 	_position_hireling_prompt(map_area)
 	_center_tutorial_panel(viewport_size)
 
@@ -138,8 +148,12 @@ func _position_hireling_prompt(area: Rect2) -> void:
 
 
 func _update_hireling_notification() -> void:
-	var notification_text: String = dungeon_level.get_hireling_notification()
-	hireling_prompt_panel.visible = not notification_text.is_empty() and not game_over_panel.visible
+	var notification_text: String = active_dungeon_level.get_hireling_notification()
+	hireling_prompt_panel.visible = (
+		notification_text != ""
+		and not game_over_panel.visible
+		and not home_panel.visible
+	)
 	if hireling_prompt_panel.visible:
 		hireling_prompt_label.text = notification_text
 
@@ -171,6 +185,9 @@ func _handle_key_event(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if game_over_panel.visible:
+		get_viewport().set_input_as_handled()
+		return
+	if home_panel.visible:
 		get_viewport().set_input_as_handled()
 		return
 
@@ -205,6 +222,9 @@ func _handle_key_event(event: InputEvent) -> void:
 		inventory_panel.visible = false
 		wield_panel.refresh(player.inventory)
 		get_viewport().set_input_as_handled()
+	elif _is_key(key_event, KEY_H):
+		_show_home_screen()
+		get_viewport().set_input_as_handled()
 
 
 func _on_inventory_changed() -> void:
@@ -214,6 +234,15 @@ func _on_inventory_changed() -> void:
 		wield_panel.refresh(player.inventory)
 	if vendor_panel.visible:
 		vendor_panel.refresh()
+	_update_trial_button_state()
+
+
+func _update_trial_button_state() -> void:
+	if trial_level != null:
+		return
+	impossible_trial_button.disabled = (
+		player.inventory.get_item_count(DungeonLevel.SKULL_ITEM_NAME) < 5
+	)
 
 
 func _on_item_collected(item_name: String, _cell: Vector2i) -> void:
@@ -281,8 +310,84 @@ func _on_begin_button_pressed() -> void:
 	status_log.add_message("Find the key, unlock the Boss Prison, and defeat the Cyclopes")
 
 
+func _show_home_screen() -> void:
+	if trial_level != null or game_over_panel.visible:
+		return
+	inventory_panel.visible = false
+	wield_panel.visible = false
+	vendor_panel.visible = false
+	home_panel.visible = true
+	get_tree().paused = true
+	return_to_game_button.grab_focus()
+
+
+func _on_return_to_game_button_pressed() -> void:
+	home_panel.visible = false
+	get_tree().paused = false
+
+
+func _on_impossible_trial_button_pressed() -> void:
+	if trial_level != null:
+		return
+	if player.inventory.get_item_count(DungeonLevel.SKULL_ITEM_NAME) < 5:
+		status_log.add_message("You need 5 skulls to enter the Impossible Trial")
+		return
+	_start_impossible_trial()
+
+
+func _start_impossible_trial() -> void:
+	home_panel.visible = false
+	get_tree().paused = false
+	_trial_return_cell = player.current_cell
+	dungeon_level.suspend_player(player)
+	dungeon_level.process_mode = Node.PROCESS_MODE_DISABLED
+	dungeon_level.visible = false
+	dungeon_level.remove_child(player)
+
+	trial_level = DungeonLevel.new()
+	trial_level.configure_impossible_trial()
+	trial_level.trial_completed.connect(_on_trial_completed)
+	trial_level.game_over.connect(_on_trial_game_over)
+	add_child(trial_level)
+	trial_level.add_child(player)
+	trial_level.attach_player(player, trial_level.get_start_cell())
+	trial_level.visible = true
+	active_dungeon_level = trial_level
+	impossible_trial_button.disabled = true
+	status_log.add_message("The Impossible Trial begins: defeat 10 Cyclopes")
+	_layout_ui()
+
+
+func _on_trial_completed() -> void:
+	if trial_level == null:
+		return
+
+	var finished_trial: DungeonLevel = trial_level
+	finished_trial.suspend_player(player)
+	finished_trial.remove_child(player)
+	finished_trial.queue_free()
+	trial_level = null
+
+	dungeon_level.add_child(player)
+	dungeon_level.process_mode = Node.PROCESS_MODE_INHERIT
+	dungeon_level.visible = true
+	dungeon_level.attach_player(player, _trial_return_cell)
+	player.health.set_max_hearts(20, true)
+	dungeon_level.respawn_all_mobs()
+	active_dungeon_level = dungeon_level
+	impossible_trial_button.disabled = false
+	status_log.add_message("Impossible Trial defeated. You return with 20 hearts.")
+	_layout_ui()
+
+
+func _on_trial_game_over() -> void:
+	get_tree().paused = false
+	home_panel.visible = false
+	_on_game_over()
+
+
 func _get_active_player() -> DungeonEntity:
-	var active_player: DungeonEntity = dungeon_level.get_player()
+	var active_player: DungeonEntity = active_dungeon_level.get_player()
 	return active_player if active_player != null else player
 
 

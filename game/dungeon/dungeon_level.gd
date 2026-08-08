@@ -11,6 +11,7 @@ signal companion_event(message: String)
 signal prison_event(message: String)
 signal player_control_changed(previous_player: DungeonEntity, current_player: DungeonEntity)
 signal game_over
+signal trial_completed
 
 const GRID_WIDTH: int = 60
 const GRID_HEIGHT: int = 42
@@ -24,7 +25,12 @@ const ITEM_NAMES: Array[String] = ["Amber Potion", "Ancient Coin", "Crystal Shar
 const ITEM_COUNT: int = 3
 const ANCIENT_COIN_COUNT: int = 24
 const HIRELING_COST: int = 5
-const MONSTER_COUNT: int = 12
+const MONSTER_COUNT: int = 16
+const SKULL_ITEM_NAME: String = "Skull"
+const TRIAL_GRID_WIDTH: int = 52
+const TRIAL_GRID_HEIGHT: int = 36
+const TRIAL_ROOM_COUNT: int = 16
+const TRIAL_CYCLOPES_COUNT: int = 10
 const BOSS_PRISON_KEY: String = "Boss Prison Key"
 const BOSS_PRISON_KEY_ITEM_NAME: String = BOSS_PRISON_KEY
 const PRISON_ROOM_SIZE: Vector2i = Vector2i(8, 7)
@@ -67,6 +73,10 @@ var visible_cells: Dictionary = {}
 var known_cells: Dictionary = {}
 var active_player: DungeonEntity = null
 var is_game_over: bool = false
+var is_impossible_trial: bool = false
+var map_width: int = GRID_WIDTH
+var map_height: int = GRID_HEIGHT
+var room_count: int = ROOM_COUNT
 
 var _player_action_in_progress: bool = false
 var _non_player_action_queue: Array[DungeonEntity] = []
@@ -74,6 +84,22 @@ var _active_non_player: DungeonEntity = null
 
 var _random: RandomNumberGenerator = RandomNumberGenerator.new()
 var _field_of_view: DungeonFieldOfView = DungeonFieldOfView.new(GRID_WIDTH, GRID_HEIGHT)
+
+
+func configure_impossible_trial() -> void:
+	is_impossible_trial = true
+	map_width = TRIAL_GRID_WIDTH
+	map_height = TRIAL_GRID_HEIGHT
+	room_count = TRIAL_ROOM_COUNT
+	_field_of_view = DungeonFieldOfView.new(map_width, map_height)
+
+
+func get_map_size() -> Vector2:
+	return Vector2(map_width * TILE_SIZE, map_height * TILE_SIZE)
+
+
+func is_trial() -> bool:
+	return is_impossible_trial
 
 
 func _enter_tree() -> void:
@@ -90,7 +116,8 @@ func _ready() -> void:
 	if scene_player != null and active_player == null:
 		set_initial_player(scene_player)
 	_spawn_enemies()
-	_spawn_monster_spawner()
+	if not is_impossible_trial:
+		_spawn_monster_spawner()
 	_refresh_visibility()
 
 
@@ -114,9 +141,9 @@ func generate() -> void:
 	known_cells.clear()
 	monster_spawn_cells.clear()
 
-	for y in range(GRID_HEIGHT):
+	for y in range(map_height):
 		var row: Array[int] = []
-		for x in range(GRID_WIDTH):
+		for x in range(map_width):
 			row.append(WALL)
 		tiles.append(row)
 
@@ -127,15 +154,15 @@ func generate() -> void:
 	var start_room: Rect2i = _create_edge_room(start_side)
 	rooms.append(start_room)
 	_carve_room(start_room)
-	for room_index in range(1, ROOM_COUNT):
+	for room_index in range(1, room_count):
 		var room: Rect2i
-		if room_index == ROOM_COUNT - 1:
+		if room_index == room_count - 1:
 			room = _create_edge_room(monster_spawn_side)
 		else:
 			var room_width: int = _random.randi_range(3, 6)
 			var room_height: int = _random.randi_range(3, 5)
-			var room_x: int = _random.randi_range(1, GRID_WIDTH - room_width - 1)
-			var room_y: int = _random.randi_range(1, GRID_HEIGHT - room_height - 1)
+			var room_x: int = _random.randi_range(1, map_width - room_width - 1)
+			var room_y: int = _random.randi_range(1, map_height - room_height - 1)
 			room = Rect2i(room_x, room_y, room_width, room_height)
 		rooms.append(room)
 		_carve_room(room)
@@ -147,23 +174,36 @@ func generate() -> void:
 
 	start_cell = _get_edge_cell(start_room, start_side)
 	exit_cell = rooms[rooms.size() - 1].get_center()
-	vendor_room = rooms[mini(VENDOR_ROOM_INDEX, rooms.size() - 1)]
-	vendor_cell = _find_vendor_cell(vendor_room)
-	_build_prison(rooms)
-	monster_spawn_cells = _reserve_monster_spawn_cells()
-	_spawn_vendor()
-	_spawn_hireling()
-	_spawn_items()
+	if is_impossible_trial:
+		vendor_room = Rect2i()
+		vendor_cell = Vector2i.ZERO
+		prison_room = Rect2i()
+		monster_spawn_cells = _reserve_trial_spawn_cells()
+	else:
+		vendor_room = rooms[mini(VENDOR_ROOM_INDEX, rooms.size() - 1)]
+		vendor_cell = _find_vendor_cell(vendor_room)
+		_build_prison(rooms)
+		monster_spawn_cells = _reserve_monster_spawn_cells()
+
+	if is_impossible_trial:
+		vendor_room = Rect2i()
+		vendor_cell = Vector2i.ZERO
+		hireling_cell = Vector2i.ZERO
+	else:
+		_spawn_vendor()
+		_spawn_hireling()
+		_spawn_items()
 	queue_redraw()
 	dungeon_generated.emit(start_cell, exit_cell)
 	if is_node_ready():
 		_spawn_enemies()
-		_spawn_monster_spawner()
+		if not is_impossible_trial:
+			_spawn_monster_spawner()
 		_refresh_visibility()
 
 
 func is_walkable(cell: Vector2i) -> bool:
-	if cell.x < 0 or cell.x >= GRID_WIDTH or cell.y < 0 or cell.y >= GRID_HEIGHT:
+	if cell.x < 0 or cell.x >= map_width or cell.y < 0 or cell.y >= map_height:
 		return false
 	return tiles[cell.y][cell.x] == FLOOR
 
@@ -215,22 +255,22 @@ func get_monster_spawn_side() -> int:
 func is_map_edge_cell(cell: Vector2i) -> bool:
 	return (
 		cell.x == 0
-		or cell.x == GRID_WIDTH - 1
+		or cell.x == map_width - 1
 		or cell.y == 0
-		or cell.y == GRID_HEIGHT - 1
+		or cell.y == map_height - 1
 	)
 
 
 func is_cell_on_side(cell: Vector2i, side: int) -> bool:
 	match side:
 		MapSide.LEFT:
-			return cell.x < GRID_WIDTH / 2
+			return cell.x < map_width / 2
 		MapSide.RIGHT:
-			return cell.x >= GRID_WIDTH / 2
+			return cell.x >= map_width / 2
 		MapSide.TOP:
-			return cell.y < GRID_HEIGHT / 2
+			return cell.y < map_height / 2
 		MapSide.BOTTOM:
-			return cell.y >= GRID_HEIGHT / 2
+			return cell.y >= map_height / 2
 	return false
 
 
@@ -454,6 +494,27 @@ func get_player() -> DungeonEntity:
 	return active_player
 
 
+func suspend_player(player: DungeonEntity) -> void:
+	if player == null or active_player != player:
+		return
+	_player_action_in_progress = false
+	_non_player_action_queue.clear()
+	_active_non_player = null
+	active_player = null
+	unregister_entity(player)
+	_refresh_visibility()
+
+
+func attach_player(player: DungeonPlayer, cell: Vector2i) -> void:
+	if player == null:
+		return
+	player.setup(self, cell)
+	if not entities.has(player):
+		register_entity(player)
+	elif active_player == null:
+		_set_active_player(player)
+
+
 func begin_player_action(player: DungeonEntity) -> bool:
 	if is_game_over or player == null or player != active_player or not player.is_player_entity():
 		return false
@@ -489,8 +550,8 @@ func spawn_enemy(
 
 func get_available_monster_spawn_cells(blocked_cell: Vector2i) -> Array[Vector2i]:
 	var available_cells: Array[Vector2i] = []
-	for y: int in range(GRID_HEIGHT):
-		for x: int in range(GRID_WIDTH):
+	for y: int in range(map_height):
+		for x: int in range(map_width):
 			var cell: Vector2i = Vector2i(x, y)
 			if (
 				is_walkable(cell)
@@ -625,22 +686,22 @@ func _create_edge_room(side: int) -> Rect2i:
 		MapSide.LEFT:
 			room_position = Vector2i(
 				0,
-				_random.randi_range(1, GRID_HEIGHT - room_height - 1),
+				_random.randi_range(1, map_height - room_height - 1),
 			)
 		MapSide.RIGHT:
 			room_position = Vector2i(
-				GRID_WIDTH - room_width,
-				_random.randi_range(1, GRID_HEIGHT - room_height - 1),
+				map_width - room_width,
+				_random.randi_range(1, map_height - room_height - 1),
 			)
 		MapSide.TOP:
 			room_position = Vector2i(
-				_random.randi_range(1, GRID_WIDTH - room_width - 1),
+				_random.randi_range(1, map_width - room_width - 1),
 				0,
 			)
 		MapSide.BOTTOM:
 			room_position = Vector2i(
-				_random.randi_range(1, GRID_WIDTH - room_width - 1),
-				GRID_HEIGHT - room_height,
+				_random.randi_range(1, map_width - room_width - 1),
+				map_height - room_height,
 			)
 	return Rect2i(room_position, Vector2i(room_width, room_height))
 
@@ -673,8 +734,8 @@ func _choose_prison_room(rooms: Array[Rect2i]) -> Rect2i:
 	var best_candidate: Rect2i = Rect2i()
 	var best_blocked_cell_count: int = 1_000_000
 
-	for y in range(PRISON_ROOM_MARGIN, GRID_HEIGHT - PRISON_ROOM_SIZE.y - PRISON_ROOM_MARGIN + 1):
-		for x in range(PRISON_ROOM_MARGIN, GRID_WIDTH - PRISON_ROOM_SIZE.x - PRISON_ROOM_MARGIN + 1):
+	for y in range(PRISON_ROOM_MARGIN, map_height - PRISON_ROOM_SIZE.y - PRISON_ROOM_MARGIN + 1):
+		for x in range(PRISON_ROOM_MARGIN, map_width - PRISON_ROOM_SIZE.x - PRISON_ROOM_MARGIN + 1):
 			var candidate: Rect2i = Rect2i(Vector2i(x, y), PRISON_ROOM_SIZE)
 			if _overlaps_any_room(candidate.grow(1), rooms):
 				continue
@@ -779,8 +840,8 @@ func _get_opposite_side(side: int) -> int:
 
 func _reserve_monster_spawn_cells() -> Array[Vector2i]:
 	var available_cells: Array[Vector2i] = []
-	for y: int in range(GRID_HEIGHT):
-		for x: int in range(GRID_WIDTH):
+	for y: int in range(map_height):
+		for x: int in range(map_width):
 			var cell: Vector2i = Vector2i(x, y)
 			if (
 				is_walkable(cell)
@@ -799,13 +860,33 @@ func _reserve_monster_spawn_cells() -> Array[Vector2i]:
 	return reserved_cells
 
 
+func _reserve_trial_spawn_cells() -> Array[Vector2i]:
+	var available_cells: Array[Vector2i] = []
+	for y: int in range(map_height):
+		for x: int in range(map_width):
+			var cell: Vector2i = Vector2i(x, y)
+			if (
+				is_walkable(cell)
+				and is_cell_on_side(cell, monster_spawn_side)
+				and cell != start_cell
+				and cell != exit_cell
+			):
+				available_cells.append(cell)
+
+	var reserved_cells: Array[Vector2i] = []
+	var reservation_count: int = mini(TRIAL_CYCLOPES_COUNT, available_cells.size())
+	for _cyclopes_index: int in range(reservation_count):
+		reserved_cells.append(_take_random_candidate(available_cells))
+	return reserved_cells
+
+
 func _spawn_items() -> void:
 	clear_pickups()
 	prison_key_cell = Vector2i.ZERO
 
 	var candidate_cells: Array[Vector2i] = []
-	for y in range(GRID_HEIGHT):
-		for x in range(GRID_WIDTH):
+	for y in range(map_height):
+		for x in range(map_width):
 			var cell: Vector2i = Vector2i(x, y)
 			if (
 				is_walkable(cell)
@@ -865,11 +946,22 @@ func _spawn_enemies() -> void:
 	if candidate_cells.is_empty():
 		return
 
+	if is_impossible_trial:
+		for _cyclopes_index: int in range(mini(TRIAL_CYCLOPES_COUNT, candidate_cells.size())):
+			var cyclopes_cell: Vector2i = _take_random_candidate(candidate_cells)
+			spawn_enemy(CyclopesEnemy.new(), cyclopes_cell)
+		return
+
 	var zombie_cell: Vector2i = _take_random_candidate(candidate_cells)
 	spawn_enemy(ZombieEnemy.new(), zombie_cell)
 	if not candidate_cells.is_empty():
 		var skeleton_cell: Vector2i = _take_random_candidate(candidate_cells)
 		spawn_enemy(SkeletonEnemy.new(), skeleton_cell)
+	for _extra_skeleton_index: int in range(4):
+		if candidate_cells.is_empty():
+			break
+		var extra_skeleton_cell: Vector2i = _take_random_candidate(candidate_cells)
+		spawn_enemy(SkeletonEnemy.new(), extra_skeleton_cell)
 	if not candidate_cells.is_empty():
 		var vampire_cell: Vector2i = _take_random_candidate(candidate_cells)
 		spawn_enemy(VampireEnemy.new(), vampire_cell)
@@ -903,6 +995,8 @@ func _spawn_enemies() -> void:
 
 
 func _spawn_monster_spawner() -> void:
+	if is_impossible_trial:
+		return
 	if monster_spawner != null and is_instance_valid(monster_spawner):
 		return
 	if not is_walkable(exit_cell) or get_entity_at(exit_cell) != null:
@@ -932,6 +1026,47 @@ func _clear_enemies() -> void:
 	enemies.clear()
 
 
+func respawn_all_mobs() -> void:
+	if is_impossible_trial:
+		return
+	prison_boss = null
+	_clear_enemies()
+	_clear_monster_spawner()
+	_spawn_enemies()
+	if is_prison_unlocked:
+		var boss: CyclopesEnemy = CyclopesEnemy.new()
+		var boss_cell: Vector2i = _find_available_respawn_cell(prison_boss_cell)
+		if spawn_enemy(boss, boss_cell) != null:
+			prison_boss = boss
+	_spawn_monster_spawner()
+	_refresh_visibility()
+
+
+func _find_available_respawn_cell(preferred_cell: Vector2i) -> Vector2i:
+	var candidates: Array[Vector2i] = [preferred_cell]
+	for direction: Vector2i in [
+		Vector2i(-1, 0),
+		Vector2i(1, 0),
+		Vector2i(0, -1),
+		Vector2i(0, 1),
+	]:
+		candidates.append(preferred_cell + direction)
+
+	for y: int in range(map_height):
+		for x: int in range(map_width):
+			candidates.append(Vector2i(x, y))
+
+	for cell: Vector2i in candidates:
+		if (
+			is_walkable(cell)
+			and get_entity_at(cell) == null
+			and not _has_pickup_at(cell)
+			and get_vendor_at(cell) == null
+		):
+			return cell
+	return preferred_cell
+
+
 func _clear_hireling() -> void:
 	if hireling == null or not is_instance_valid(hireling):
 		hireling = null
@@ -959,8 +1094,8 @@ func _spawn_vendor() -> void:
 
 func _spawn_hireling() -> void:
 	var candidate_cells: Array[Vector2i] = []
-	for y: int in range(GRID_HEIGHT):
-		for x: int in range(GRID_WIDTH):
+	for y: int in range(map_height):
+		for x: int in range(map_width):
 			var cell: Vector2i = Vector2i(x, y)
 			if (
 				is_walkable(cell)
@@ -1106,6 +1241,8 @@ func _on_entity_defeated(entity: DungeonEntity) -> void:
 		if entity == prison_boss:
 			prison_boss = null
 		unregister_entity(entity)
+		if is_impossible_trial and enemies.is_empty():
+			trial_completed.emit()
 
 
 func _set_active_player(new_player: DungeonEntity) -> void:
@@ -1195,11 +1332,11 @@ func _is_opaque_for_field_of_view(cell: Vector2i) -> bool:
 
 
 func _draw() -> void:
-	var map_size: Vector2 = Vector2(GRID_WIDTH * TILE_SIZE, GRID_HEIGHT * TILE_SIZE)
+	var map_size: Vector2 = get_map_size()
 	draw_rect(Rect2(Vector2.ZERO, map_size), Color("#0b0e15"))
 
-	for y in range(GRID_HEIGHT):
-		for x in range(GRID_WIDTH):
+	for y in range(map_height):
+		for x in range(map_width):
 			var tile_rect: Rect2 = Rect2(
 				Vector2(x * TILE_SIZE, y * TILE_SIZE),
 				Vector2(TILE_SIZE, TILE_SIZE)
@@ -1209,7 +1346,7 @@ func _draw() -> void:
 				draw_rect(tile_rect, Color("#080a10"))
 				continue
 
-			var is_floor: bool = tiles.size() == GRID_HEIGHT and tiles[y][x] == FLOOR
+			var is_floor: bool = tiles.size() == map_height and tiles[y][x] == FLOOR
 			var is_lit: bool = is_cell_visible(cell)
 			if is_floor and is_lit:
 				draw_rect(tile_rect, Color("#252b39"))

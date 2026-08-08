@@ -51,5 +51,17 @@ func reset() -> void:
 	health_changed.emit(current_hearts, max_hearts)
 
 
+func set_max_hearts(new_max_hearts: int, restore_to_max: bool = false) -> void:
+	var safe_max_hearts: int = maxi(new_max_hearts, MIN_HEARTS)
+	var previous_hearts: int = current_hearts
+	max_hearts = safe_max_hearts
+	if restore_to_max:
+		current_hearts = max_hearts
+	else:
+		current_hearts = mini(current_hearts, max_hearts)
+	if current_hearts != previous_hearts or restore_to_max:
+		health_changed.emit(current_hearts, max_hearts)
+
+
 func is_depleted() -> bool:
 	return current_hearts <= 0

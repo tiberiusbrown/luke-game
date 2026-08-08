@@ -19,7 +19,8 @@ func bind_health(new_health: HeartHealth) -> void:
 	queue_redraw()
 
 
-func _on_health_changed(_current_hearts: int, _max_hearts: int) -> void:
+func _on_health_changed(_current_hearts: int, max_hearts: int) -> void:
+	custom_minimum_size = Vector2(_get_bar_width(max_hearts), HEART_HEIGHT)
 	queue_redraw()
 
 

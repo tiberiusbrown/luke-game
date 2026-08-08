@@ -14,6 +14,14 @@ func _init() -> void:
 	hit_chance = HIT_CHANCE
 
 
+func _on_defeated() -> void:
+	var defeated_level: DungeonLevel = dungeon_level
+	var defeated_cell: Vector2i = current_cell
+	super._on_defeated()
+	if defeated_level != null:
+		defeated_level.spawn_pickup(DungeonLevel.SKULL_ITEM_NAME, defeated_cell)
+
+
 func _draw() -> void:
 	draw_circle(Vector2(2, 5), 11.0, Color(0.0, 0.0, 0.0, 0.3))
 	draw_circle(Vector2.ZERO, 10.5, Color("#6d7480"))

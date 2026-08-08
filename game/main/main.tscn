@@ -116,7 +116,7 @@ offset_right = 500.0
 offset_bottom = 58.0
 theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
 theme_override_font_sizes/font_size = 12
-text = "ARROWS MOVE/ATTACK  |  E INTERACT  |  I PACK  |  W WIELD"
+text = "ARROWS MOVE/ATTACK  |  E INTERACT  |  I PACK  |  W WIELD  |  H HOME"
 
 [node name="HealthLabel" type="Label" parent="Hud"]
 offset_left = 500.0
@@ -437,6 +437,65 @@ theme_override_font_sizes/font_size = 13
 text = "CLOSE THE GAME TO RETURN TO THE MENU"
 horizontal_alignment = 1
 
+[node name="HomePanel" type="Panel" parent="Hud"]
+unique_name_in_owner = true
+process_mode = 3
+visible = false
+offset_right = 460.0
+offset_bottom = 320.0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_inventory_panel")
+
+[node name="TitleLabel" type="Label" parent="Hud/HomePanel"]
+offset_left = 28.0
+offset_top = 26.0
+offset_right = 432.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.91, 0.94, 1, 1)
+theme_override_font_sizes/font_size = 28
+text = "HOME"
+horizontal_alignment = 1
+
+[node name="HintLabel" type="Label" parent="Hud/HomePanel"]
+offset_left = 28.0
+offset_top = 78.0
+offset_right = 432.0
+offset_bottom = 112.0
+theme_override_colors/font_color = Color(0.45, 0.53, 0.66, 1)
+theme_override_font_sizes/font_size = 13
+text = "THE DUNGEON IS PAUSED  |  NEED 5 SKULLS FOR THE TRIAL"
+horizontal_alignment = 1
+
+[node name="ReturnToGameButton" type="Button" parent="Hud/HomePanel"]
+unique_name_in_owner = true
+process_mode = 3
+offset_left = 78.0
+offset_top = 142.0
+offset_right = 382.0
+offset_bottom = 194.0
+focus_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.98, 1, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_tutorial_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tutorial_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tutorial_button_hover")
+text = "RETURN TO GAME"
+
+[node name="ImpossibleTrialButton" type="Button" parent="Hud/HomePanel"]
+unique_name_in_owner = true
+process_mode = 3
+offset_left = 78.0
+offset_top = 214.0
+offset_right = 382.0
+offset_bottom = 266.0
+focus_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.98, 1, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_tutorial_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tutorial_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tutorial_button_hover")
+text = "DO IMPOSSIBLE TRIAL"
+
 [node name="HirelingPromptPanel" type="Panel" parent="Hud"]
 unique_name_in_owner = true
 visible = false
@@ -537,7 +596,7 @@ offset_right = 536.0
 offset_bottom = 330.0
 theme_override_colors/font_color = Color(0.82, 0.87, 0.94, 1)
 theme_override_font_sizes/font_size = 16
-text = "ARROWS / WASD     MOVE AND ATTACK\nE                  INTERACT\nI                  OPEN YOUR PACK\nW                  WIELD A WEAPON"
+text = "ARROWS / WASD     MOVE AND ATTACK\nE                  INTERACT\nI                  OPEN YOUR PACK\nW                  WIELD A WEAPON\nH                  OPEN HOME"
 vertical_alignment = 1
 
 [node name="ObjectiveLabel" type="Label" parent="Hud/TutorialOverlay/TutorialPanel"]

@@ -32,6 +32,19 @@ func test_zombie_and_skeleton_have_their_requested_combat_stats() -> void:
 	assert_gt(skeleton.speed, player.speed)
 
 
+func test_skeleton_drops_a_skull_when_defeated() -> void:
+	var skeleton: SkeletonEnemy = SkeletonEnemy.new()
+	dungeon_level.spawn_enemy(skeleton, Vector2i(3, 2))
+
+	skeleton.take_damage(skeleton.health.max_hearts)
+
+	var skull_count: int = 0
+	for pickup: ItemPickup in dungeon_level.pickups:
+		if pickup.item_name == DungeonLevel.SKULL_ITEM_NAME:
+			skull_count += 1
+	assert_eq(skull_count, 1)
+
+
 func test_vampire_spider_and_ghost_have_their_requested_combat_stats() -> void:
 	var vampire: VampireEnemy = VampireEnemy.new()
 	var spider: SpiderEnemy = SpiderEnemy.new()

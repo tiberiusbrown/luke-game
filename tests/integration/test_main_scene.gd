@@ -370,7 +370,12 @@ func test_main_scene_spawns_all_enemy_types_without_health_ui() -> void:
 	for enemy: DungeonEnemy in dungeon_level.enemies:
 		enemy_types.append(enemy.enemy_type)
 
-	assert_eq(dungeon_level.enemies.size(), 12)
+	assert_eq(dungeon_level.enemies.size(), 16)
+	var skeleton_count: int = 0
+	for enemy: DungeonEnemy in dungeon_level.enemies:
+		if enemy is SkeletonEnemy:
+			skeleton_count += 1
+	assert_eq(skeleton_count, 5)
 	assert_true(enemy_types.has("Zombie"))
 	assert_true(enemy_types.has("Skeleton"))
 	assert_true(enemy_types.has("Vampire"))
@@ -562,3 +567,80 @@ func _get_adjacent_empty_cell(dungeon_level: DungeonLevel, target_cell: Vector2i
 		):
 			return candidate_cell
 	return _get_adjacent_walkable_cell(dungeon_level, target_cell)
+
+
+func test_h_opens_a_paused_home_screen_and_return_resumes_the_game() -> void:
+	var home_panel: Panel = main_scene.get_node("%HomePanel") as Panel
+	var key_event: InputEventKey = InputEventKey.new()
+	key_event.keycode = KEY_H
+	key_event.pressed = true
+
+	main_scene._input(key_event)
+
+	assert_true(home_panel.visible)
+	assert_true(get_tree().paused)
+
+	main_scene._on_return_to_game_button_pressed()
+
+	assert_false(home_panel.visible)
+	assert_false(get_tree().paused)
+
+
+func test_impossible_trial_requires_five_skulls() -> void:
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var trial_button: Button = main_scene.get_node("%ImpossibleTrialButton") as Button
+
+	assert_true(trial_button.disabled)
+	main_scene._on_impossible_trial_button_pressed()
+	assert_null(main_scene.trial_level)
+
+	for _skull_index: int in range(4):
+		player.inventory.add_item(DungeonLevel.SKULL_ITEM_NAME)
+	assert_true(trial_button.disabled)
+	player.inventory.add_item(DungeonLevel.SKULL_ITEM_NAME)
+	assert_false(trial_button.disabled)
+
+
+func test_impossible_trial_has_ten_cyclopes_on_a_smaller_map() -> void:
+	var main_dungeon: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	for _skull_index: int in range(5):
+		player.inventory.add_item(DungeonLevel.SKULL_ITEM_NAME)
+	main_scene._show_home_screen()
+	main_scene._on_impossible_trial_button_pressed()
+	await get_tree().process_frame
+
+	var trial: DungeonLevel = main_scene.trial_level
+	assert_not_null(trial)
+	if trial == null:
+		return
+	assert_true(trial.is_trial())
+	assert_eq(trial.enemies.size(), DungeonLevel.TRIAL_CYCLOPES_COUNT)
+	assert_lt(trial.get_map_size().x, main_dungeon.get_map_size().x)
+	assert_lt(trial.get_map_size().y, main_dungeon.get_map_size().y)
+	for enemy: DungeonEnemy in trial.enemies:
+		assert_true(enemy is CyclopesEnemy)
+
+
+func test_defeating_impossible_trial_returns_with_twenty_hearts_and_respawned_mobs() -> void:
+	var main_dungeon: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	for _skull_index: int in range(5):
+		player.inventory.add_item(DungeonLevel.SKULL_ITEM_NAME)
+	main_scene._start_impossible_trial()
+	await get_tree().process_frame
+
+	var trial: DungeonLevel = main_scene.trial_level
+	assert_not_null(trial)
+	if trial == null:
+		return
+	for enemy: DungeonEnemy in trial.enemies.duplicate():
+		enemy.take_damage(enemy.health.current_hearts)
+	await get_tree().process_frame
+
+	assert_null(main_scene.trial_level)
+	assert_eq(player.get_parent(), main_dungeon)
+	assert_eq(player.health.max_hearts, 20)
+	assert_eq(player.health.current_hearts, 20)
+	assert_eq(main_dungeon.enemies.size(), DungeonLevel.MONSTER_COUNT)
+	assert_not_null(main_dungeon.get_monster_spawner())
