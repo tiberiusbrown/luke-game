@@ -130,6 +130,33 @@ func test_input_controls_the_hireling_after_player_death() -> void:
 	assert_eq(hireling.get_current_cell(), Vector2i(4, 2))
 
 
+func test_controlled_hireling_picks_up_items_into_the_player_inventory() -> void:
+	_hire_hireling()
+	player.take_damage(DungeonPlayer.MAX_HEARTS)
+	dungeon_level.spawn_pickup("Amber Potion", Vector2i(4, 2))
+
+	assert_true(hireling.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(DungeonEntity.MOVE_DURATION + 0.05).timeout
+
+	assert_eq(player.inventory.get_item_count("Amber Potion"), 1)
+	assert_eq(dungeon_level.pickups.size(), 0)
+
+
+func test_controlled_hireling_can_destroy_the_monster_spawner() -> void:
+	_hire_hireling()
+	player.take_damage(DungeonPlayer.MAX_HEARTS)
+	var spawner: MonsterSpawner = dungeon_level.get_monster_spawner()
+	spawner.current_cell = Vector2i(4, 2)
+	spawner.position = dungeon_level.cell_to_world(spawner.current_cell)
+	spawner.health.current_hearts = DungeonHireling.ATTACK_DAMAGE
+	var spawner_health: HeartHealth = spawner.health
+
+	assert_true(hireling.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(DungeonEntity.ATTACK_LUNGE_DURATION + HitEffect.DURATION + 0.05).timeout
+
+	assert_true(spawner_health.is_depleted())
+
+
 func test_dead_hireling_causes_game_over_when_player_dies() -> void:
 	_hire_hireling()
 

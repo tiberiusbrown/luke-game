@@ -10,6 +10,7 @@ const FOLLOW_DISTANCE: int = 1
 var is_hired: bool = false
 var is_controlled: bool = false
 var hit_chance: float = HIT_CHANCE
+var inventory: PlayerInventory = PlayerInventory.new()
 
 
 func _init() -> void:
@@ -35,6 +36,12 @@ func hire() -> void:
 func set_controlled(controlled: bool) -> void:
 	is_controlled = controlled
 	queue_redraw()
+
+
+func set_inventory(new_inventory: PlayerInventory) -> void:
+	if new_inventory == null:
+		return
+	inventory = new_inventory
 
 
 func take_turn() -> bool:
@@ -85,7 +92,20 @@ func get_attack_color() -> Color:
 
 
 func _can_attack_target(target: DungeonEntity) -> bool:
-	return target is DungeonEnemy
+	return target is DungeonEnemy or target is MonsterSpawner
+
+
+func _after_move() -> void:
+	if dungeon_level == null or inventory == null:
+		return
+
+	var pickup: ItemPickup = dungeon_level.collect_pickup_at(current_cell)
+	if pickup == null:
+		return
+	if pickup.weapon_data != null:
+		inventory.add_weapon(pickup.weapon_data)
+	else:
+		inventory.add_item(pickup.item_name)
 
 
 func _get_nearest_enemy() -> DungeonEnemy:

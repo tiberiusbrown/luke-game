@@ -342,6 +342,7 @@ func interact_with_hireling(player_cell: Vector2i, player_inventory: PlayerInven
 			return true
 
 	has_hired_hireling = true
+	hireling.set_inventory(player_inventory)
 	hireling.hire()
 	companion_event.emit("You hire the fighter for %d Ancient Coins" % HIRELING_COST)
 	return true
