@@ -129,7 +129,7 @@ func test_cyclopes_is_a_boss_with_thirty_hearts_and_heavy_attacks() -> void:
 	assert_gt(cyclopes.speed, player.speed)
 
 
-func test_monster_spawner_has_one_hundred_hearts_and_spawns_ten_monsters() -> void:
+func test_monster_spawner_caps_and_replenishes_spawned_monsters() -> void:
 	var spawner: MonsterSpawner = dungeon_level.get_monster_spawner()
 	var initial_enemy_count: int = dungeon_level.enemies.size()
 
@@ -139,6 +139,55 @@ func test_monster_spawner_has_one_hundred_hearts_and_spawns_ten_monsters() -> vo
 	assert_eq(MonsterSpawner.MONSTERS_PER_SPAWN, 10)
 	assert_eq(spawner.spawn_monsters(), 10)
 	assert_eq(dungeon_level.enemies.size(), initial_enemy_count + 10)
+	assert_eq(spawner.get_spawned_monster_count(), 10)
+	assert_eq(spawner.spawn_monsters(), 0)
+
+	var spawned_monsters: Array[DungeonEnemy] = []
+	for enemy: DungeonEnemy in dungeon_level.enemies:
+		spawned_monsters.append(enemy)
+	for index: int in range(3):
+		spawned_monsters[index].take_damage(spawned_monsters[index].health.current_hearts)
+
+	assert_eq(spawner.get_spawned_monster_count(), 7)
+	assert_eq(spawner.spawn_monsters(), 3)
+	assert_eq(spawner.get_spawned_monster_count(), 10)
+
+
+func test_timed_spawned_monsters_are_scheduled_and_can_attack() -> void:
+	var spawner: MonsterSpawner = dungeon_level.get_monster_spawner()
+	dungeon_level._clear_enemies()
+	dungeon_level.monster_spawn_side = DungeonLevel.MapSide.RIGHT
+	dungeon_level.start_cell = Vector2i(0, 0)
+	dungeon_level.exit_cell = Vector2i(DungeonLevel.GRID_WIDTH - 1, DungeonLevel.GRID_HEIGHT - 1)
+	spawner.current_cell = dungeon_level.exit_cell
+	spawner._time_until_spawn = 0.0
+	await get_tree().process_frame
+
+	assert_eq(spawner.get_spawned_monster_count(), 10)
+
+	var spawned_enemy: DungeonEnemy = null
+	for enemy: DungeonEnemy in dungeon_level.enemies:
+		if enemy.speed >= DungeonPlayer.SPEED:
+			spawned_enemy = enemy
+			break
+	assert_not_null(spawned_enemy)
+	if spawned_enemy == null:
+		return
+	spawned_enemy.hit_chance = 1.0
+	for enemy: DungeonEnemy in dungeon_level.enemies.duplicate():
+		if enemy != spawned_enemy:
+			enemy.take_damage(enemy.health.current_hearts)
+
+	spawned_enemy.current_cell = Vector2i(3, 2)
+	spawned_enemy.position = dungeon_level.cell_to_world(spawned_enemy.current_cell)
+
+	assert_true(dungeon_level.turn_scheduler.has_entity(spawned_enemy))
+	var starting_player_hearts: int = player.health.current_hearts
+	assert_true(player.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(0.8).timeout
+
+	assert_lt(player.health.current_hearts, starting_player_hearts)
+	spawned_enemy.take_damage(spawned_enemy.health.current_hearts)
 
 
 func test_cyclopes_deals_four_hearts_when_its_attack_hits() -> void:

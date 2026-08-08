@@ -475,6 +475,7 @@ func spawn_enemy(enemy: DungeonEnemy, cell: Vector2i) -> DungeonEnemy:
 	enemy.setup(self, cell)
 	add_child(enemy)
 	enemies.append(enemy)
+	register_entity(enemy)
 	_refresh_visibility()
 	return enemy
 
