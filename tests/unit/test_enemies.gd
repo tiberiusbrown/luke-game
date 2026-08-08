@@ -140,6 +140,11 @@ func test_monster_spawner_caps_and_replenishes_spawned_monsters() -> void:
 	assert_eq(spawner.spawn_monsters(), 10)
 	assert_eq(dungeon_level.enemies.size(), initial_enemy_count + 10)
 	assert_eq(spawner.get_spawned_monster_count(), 10)
+	for index: int in range(initial_enemy_count, dungeon_level.enemies.size()):
+		var enemy: DungeonEnemy = dungeon_level.enemies[index]
+		assert_gte(enemy.speed, DungeonPlayer.SPEED)
+		assert_gte(enemy.attack_damage, 2)
+		assert_gte(enemy.hit_chance, 0.70)
 	assert_eq(spawner.spawn_monsters(), 0)
 
 	var spawned_monsters: Array[DungeonEnemy] = []
@@ -165,20 +170,17 @@ func test_timed_spawned_monsters_are_scheduled_and_can_attack() -> void:
 
 	assert_eq(spawner.get_spawned_monster_count(), 10)
 
-	var spawned_enemy: DungeonEnemy = null
-	for enemy: DungeonEnemy in dungeon_level.enemies:
-		if enemy.speed >= DungeonPlayer.SPEED:
-			spawned_enemy = enemy
-			break
+	var spawned_enemy: DungeonEnemy = dungeon_level.enemies[0]
 	assert_not_null(spawned_enemy)
 	if spawned_enemy == null:
 		return
 	spawned_enemy.hit_chance = 1.0
+	spawned_enemy.speed = 0.5
 	for enemy: DungeonEnemy in dungeon_level.enemies.duplicate():
 		if enemy != spawned_enemy:
 			enemy.take_damage(enemy.health.current_hearts)
 
-	spawned_enemy.current_cell = Vector2i(3, 2)
+	spawned_enemy.current_cell = Vector2i(4, 2)
 	spawned_enemy.position = dungeon_level.cell_to_world(spawned_enemy.current_cell)
 
 	assert_true(dungeon_level.turn_scheduler.has_entity(spawned_enemy))

@@ -15,12 +15,16 @@ var _registration_order: Dictionary = {}
 var _next_registration_order: int = 0
 
 
-func add_entity(entity: DungeonEntity) -> void:
+func add_entity(entity: DungeonEntity, starts_immediately: bool = false) -> void:
 	if entity == null or _entities.has(entity):
 		return
 
 	_entities.append(entity)
-	_next_action_times[entity] = current_time + get_action_interval(entity.speed)
+	_next_action_times[entity] = (
+		current_time
+		if starts_immediately
+		else current_time + get_action_interval(entity.speed)
+	)
 	_registration_order[entity] = _next_registration_order
 	_next_registration_order += 1
 

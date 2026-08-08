@@ -5,6 +5,9 @@ const MAX_HEARTS: int = 100
 const SPAWN_INTERVAL: float = 5.0
 const MONSTERS_PER_SPAWN: int = 10
 const MAX_SPAWNED_MONSTERS: int = 10
+const SPAWNED_MONSTER_SPEED_MULTIPLIER: float = 2.0
+const SPAWNED_MONSTER_DAMAGE_BONUS: int = 1
+const SPAWNED_MONSTER_HIT_CHANCE_BONUS: float = 0.20
 const MONSTER_SCRIPTS: Array[Script] = [
 	preload("res://game/enemies/zombie.gd"),
 	preload("res://game/enemies/skeleton.gd"),
@@ -66,7 +69,8 @@ func spawn_monsters() -> int:
 	)
 	for cell: Vector2i in candidate_cells.slice(0, spawn_count):
 		var monster: DungeonEnemy = _create_monster()
-		if dungeon_level.spawn_enemy(monster, cell) != null:
+		_configure_spawned_monster(monster)
+		if dungeon_level.spawn_enemy(monster, cell, true) != null:
 			_spawned_monsters.append(monster)
 			monster.defeated.connect(_on_spawned_monster_defeated)
 			spawned_count += 1
@@ -83,6 +87,16 @@ func _create_monster() -> DungeonEnemy:
 		random_number_generator.randi_range(0, MONSTER_SCRIPTS.size() - 1)
 	]
 	return monster_script.new() as DungeonEnemy
+
+
+func _configure_spawned_monster(monster: DungeonEnemy) -> void:
+	monster.speed *= SPAWNED_MONSTER_SPEED_MULTIPLIER
+	monster.attack_damage += SPAWNED_MONSTER_DAMAGE_BONUS
+	monster.hit_chance = clampf(
+		monster.hit_chance + SPAWNED_MONSTER_HIT_CHANCE_BONUS,
+		0.0,
+		1.0,
+	)
 
 
 func _prune_spawned_monsters() -> void:

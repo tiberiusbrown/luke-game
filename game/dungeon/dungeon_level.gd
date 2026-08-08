@@ -397,14 +397,14 @@ func is_cell_known(cell: Vector2i) -> bool:
 	return known_cells.has(cell)
 
 
-func register_entity(entity: DungeonEntity) -> void:
+func register_entity(entity: DungeonEntity, starts_immediately: bool = false) -> void:
 	if entity == null:
 		return
 
 	if not entities.has(entity):
 		entities.append(entity)
 	if turn_scheduler != null and not turn_scheduler.has_entity(entity):
-		turn_scheduler.add_entity(entity)
+		turn_scheduler.add_entity(entity, starts_immediately)
 	if not entity.action_finished.is_connected(_on_entity_action_finished):
 		entity.action_finished.connect(_on_entity_action_finished)
 	if not entity.defeated.is_connected(_on_entity_defeated):
@@ -467,16 +467,22 @@ func begin_player_action(player: DungeonEntity) -> bool:
 	return true
 
 
-func spawn_enemy(enemy: DungeonEnemy, cell: Vector2i) -> DungeonEnemy:
+func spawn_enemy(
+	enemy: DungeonEnemy,
+	cell: Vector2i,
+	starts_immediately: bool = false,
+) -> DungeonEnemy:
 	if enemy == null or not is_walkable(cell):
 		return null
 	if get_entity_at(cell) != null or _has_pickup_at(cell) or get_vendor_at(cell) != null:
 		return null
 
 	enemy.setup(self, cell)
-	add_child(enemy)
 	enemies.append(enemy)
-	register_entity(enemy)
+	# Timed spawns pass starts_immediately so slow enemies are eligible for the
+	# next player turn instead of appearing inert beside the player.
+	register_entity(enemy, starts_immediately)
+	add_child(enemy)
 	_refresh_visibility()
 	return enemy
 
