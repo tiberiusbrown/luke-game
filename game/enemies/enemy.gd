@@ -7,6 +7,7 @@ var enemy_type: String = "Enemy"
 var attack_damage: int = 1
 var hit_chance: float = 1.0
 var is_boss: bool = false
+var _base_attack_damage: int = 1
 
 
 func _init() -> void:
@@ -46,6 +47,14 @@ func take_turn() -> bool:
 
 func get_attack_damage() -> int:
 	return attack_damage
+
+
+func apply_difficulty_damage_modifier(damage_modifier: int) -> void:
+	attack_damage = maxi(_base_attack_damage + damage_modifier, 0)
+
+
+func remember_base_attack_damage() -> void:
+	_base_attack_damage = attack_damage
 
 
 func get_hit_chance() -> float:

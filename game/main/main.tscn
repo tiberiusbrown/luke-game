@@ -616,13 +616,46 @@ text = "OBJECTIVE: FIND THE BOSS PRISON KEY, THEN DEFEAT THE CYCLOPES."
 horizontal_alignment = 1
 autowrap_mode = 2
 
+[node name="DifficultyInfoLabel" type="Label" parent="Hud/TutorialOverlay/TutorialPanel"]
+layout_mode = 0
+offset_left = 48.0
+offset_top = 387.0
+offset_right = 552.0
+offset_bottom = 408.0
+theme_override_colors/font_color = Color(0.42, 0.78, 0.67, 1)
+theme_override_font_sizes/font_size = 13
+text = "Default enemy damage. Boss enabled."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="DifficultyOptionButton" type="OptionButton" parent="Hud/TutorialOverlay/TutorialPanel"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 160.0
+offset_top = 410.0
+offset_right = 440.0
+offset_bottom = 448.0
+focus_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_tutorial_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_tutorial_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_tutorial_button_hover")
+item_count = 3
+selected = 1
+popup/item_0/text = "Easy"
+popup/item_0/id = 0
+popup/item_1/text = "Normal"
+popup/item_1/id = 1
+popup/item_2/text = "Hard"
+popup/item_2/id = 2
+
 [node name="BeginButton" type="Button" parent="Hud/TutorialOverlay/TutorialPanel"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 160.0
-offset_top = 414.0
+offset_top = 452.0
 offset_right = 440.0
-offset_bottom = 466.0
+offset_bottom = 492.0
 focus_mode = 2
 theme_override_colors/font_color = Color(0.96, 0.98, 1, 1)
 theme_override_font_sizes/font_size = 16

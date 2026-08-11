@@ -2,6 +2,7 @@ class_name DungeonLevel
 extends Node2D
 
 enum MapSide { LEFT, RIGHT, TOP, BOTTOM }
+enum Difficulty { EASY, NORMAL, HARD }
 
 signal dungeon_generated(start_cell: Vector2i, exit_cell: Vector2i)
 signal item_collected(item_name: String, cell: Vector2i)
@@ -51,6 +52,7 @@ const WEAPON_DEFINITIONS: Array[Dictionary] = [
 	{"name": "Thunder Hammer", "damage": 3},
 ]
 const VENDOR_ROOM_INDEX: int = 1
+const DEFAULT_DIFFICULTY: Difficulty = Difficulty.NORMAL
 
 var tiles: Array = []
 var start_cell: Vector2i = Vector2i.ZERO
@@ -81,6 +83,7 @@ var known_cells: Dictionary = {}
 var active_player: DungeonEntity = null
 var is_game_over: bool = false
 var is_impossible_trial: bool = false
+var difficulty: Difficulty = DEFAULT_DIFFICULTY
 var map_width: int = GRID_WIDTH
 var map_height: int = GRID_HEIGHT
 var room_count: int = ROOM_COUNT
@@ -99,6 +102,54 @@ func configure_impossible_trial() -> void:
 	map_height = TRIAL_GRID_HEIGHT
 	room_count = TRIAL_ROOM_COUNT
 	_field_of_view = DungeonFieldOfView.new(map_width, map_height)
+
+
+func set_difficulty(new_difficulty: Difficulty) -> void:
+	difficulty = new_difficulty
+	_apply_difficulty_to_enemies()
+	if not is_node_ready() or is_impossible_trial:
+		return
+	if difficulty != Difficulty.HARD:
+		_clear_monster_spawner()
+	else:
+		_spawn_monster_spawner()
+	_refresh_visibility()
+
+
+func get_difficulty() -> Difficulty:
+	return difficulty
+
+
+func has_boss() -> bool:
+	return difficulty != Difficulty.EASY
+
+
+func has_monster_spawner() -> bool:
+	return monster_spawner != null and is_instance_valid(monster_spawner)
+
+
+func should_spawn_monster_spawner() -> bool:
+	return difficulty == Difficulty.HARD
+
+
+func get_enemy_damage_modifier() -> int:
+	return -1 if difficulty == Difficulty.EASY else 0
+
+
+func get_difficulty_name() -> String:
+	match difficulty:
+		Difficulty.EASY:
+			return "Easy"
+		Difficulty.HARD:
+			return "Hard"
+		_:
+			return "Normal"
+
+
+func _apply_difficulty_to_enemies() -> void:
+	for enemy: DungeonEnemy in enemies:
+		if is_instance_valid(enemy):
+			enemy.apply_difficulty_damage_modifier(get_enemy_damage_modifier())
 
 
 func get_map_size() -> Vector2:
@@ -123,7 +174,7 @@ func _ready() -> void:
 	if scene_player != null and active_player == null:
 		set_initial_player(scene_player)
 	_spawn_enemies()
-	if not is_impossible_trial:
+	if not is_impossible_trial and should_spawn_monster_spawner():
 		_spawn_monster_spawner()
 	_refresh_visibility()
 
@@ -204,7 +255,7 @@ func generate() -> void:
 	dungeon_generated.emit(start_cell, exit_cell)
 	if is_node_ready():
 		_spawn_enemies()
-		if not is_impossible_trial:
+		if not is_impossible_trial and should_spawn_monster_spawner():
 			_spawn_monster_spawner()
 		_refresh_visibility()
 
@@ -411,7 +462,9 @@ func interact_with_prison(player_cell: Vector2i, player_inventory: PlayerInvento
 func unlock_prison(player_inventory: PlayerInventory) -> bool:
 	if is_prison_unlocked:
 		return true
-	if prison_room.size == Vector2i.ZERO or player_inventory == null:
+	if not has_boss() or prison_room.size == Vector2i.ZERO or player_inventory == null:
+		if not has_boss():
+			prison_event.emit("This expedition has no boss.")
 		return false
 	if not player_inventory.remove_item(BOSS_PRISON_KEY):
 		return false
@@ -547,6 +600,8 @@ func spawn_enemy(
 		return null
 
 	enemy.setup(self, cell)
+	enemy.remember_base_attack_damage()
+	enemy.apply_difficulty_damage_modifier(get_enemy_damage_modifier())
 	enemies.append(enemy)
 	# Timed spawns pass starts_immediately so slow enemies are eligible for the
 	# next player turn instead of appearing inert beside the player.
@@ -1051,7 +1106,8 @@ func respawn_all_mobs() -> void:
 		var boss_cell: Vector2i = _find_available_respawn_cell(prison_boss_cell)
 		if spawn_enemy(boss, boss_cell) != null:
 			prison_boss = boss
-	_spawn_monster_spawner()
+	if should_spawn_monster_spawner():
+		_spawn_monster_spawner()
 	_refresh_visibility()
 
 

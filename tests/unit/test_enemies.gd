@@ -7,6 +7,7 @@ var player: DungeonPlayer
 func before_each() -> void:
 	dungeon_level = DungeonLevel.new()
 	add_child_autofree(dungeon_level)
+	dungeon_level.set_difficulty(DungeonLevel.Difficulty.HARD)
 	dungeon_level._clear_enemies()
 	dungeon_level.clear_pickups()
 	_set_up_test_map()

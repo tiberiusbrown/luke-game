@@ -32,6 +32,54 @@ func test_main_scene_shows_and_dismisses_the_tutorial() -> void:
 	assert_false(tutorial_overlay.visible)
 
 
+func test_tutorial_applies_easy_difficulty_without_a_boss_or_spawner() -> void:
+	var packed_scene: PackedScene = load("res://game/main/main.tscn")
+	var easy_scene: Node2D = packed_scene.instantiate() as Node2D
+	add_child_autofree(easy_scene)
+	await get_tree().process_frame
+
+	var difficulty_button: OptionButton = easy_scene.get_node(
+		"%DifficultyOptionButton"
+	) as OptionButton
+	difficulty_button.select(DungeonLevel.Difficulty.EASY)
+	easy_scene._on_difficulty_selected(DungeonLevel.Difficulty.EASY)
+	easy_scene._on_begin_button_pressed()
+	await get_tree().process_frame
+
+	var dungeon_level: DungeonLevel = easy_scene.get_node("%DungeonLevel") as DungeonLevel
+	assert_eq(dungeon_level.get_difficulty(), DungeonLevel.Difficulty.EASY)
+	assert_false(dungeon_level.has_boss())
+	assert_null(dungeon_level.get_monster_spawner())
+	var zombie: DungeonEnemy = _find_enemy_of_type(dungeon_level, ZombieEnemy)
+	assert_not_null(zombie)
+	if zombie != null:
+		assert_eq(zombie.get_attack_damage(), ZombieEnemy.ATTACK_DAMAGE - 1)
+
+
+func test_tutorial_applies_hard_difficulty_with_a_spawner_and_default_damage() -> void:
+	var packed_scene: PackedScene = load("res://game/main/main.tscn")
+	var hard_scene: Node2D = packed_scene.instantiate() as Node2D
+	add_child_autofree(hard_scene)
+	await get_tree().process_frame
+
+	var difficulty_button: OptionButton = hard_scene.get_node(
+		"%DifficultyOptionButton"
+	) as OptionButton
+	difficulty_button.select(DungeonLevel.Difficulty.HARD)
+	hard_scene._on_difficulty_selected(DungeonLevel.Difficulty.HARD)
+	hard_scene._on_begin_button_pressed()
+	await get_tree().process_frame
+
+	var dungeon_level: DungeonLevel = hard_scene.get_node("%DungeonLevel") as DungeonLevel
+	assert_eq(dungeon_level.get_difficulty(), DungeonLevel.Difficulty.HARD)
+	assert_true(dungeon_level.has_boss())
+	assert_not_null(dungeon_level.get_monster_spawner())
+	var zombie: DungeonEnemy = _find_enemy_of_type(dungeon_level, ZombieEnemy)
+	assert_not_null(zombie)
+	if zombie != null:
+		assert_eq(zombie.get_attack_damage(), ZombieEnemy.ATTACK_DAMAGE)
+
+
 func test_main_scene_displays_position_hud() -> void:
 	var position_label: Label = main_scene.get_node("%PositionLabel") as Label
 
@@ -233,6 +281,13 @@ func _get_prison_outside_cell(dungeon_level: DungeonLevel) -> Vector2i:
 		if not dungeon_level.get_prison_room().has_point(candidate_cell) and dungeon_level.is_walkable(candidate_cell):
 			return candidate_cell
 	return door_cell
+
+
+func _find_enemy_of_type(dungeon_level: DungeonLevel, enemy_type: Script) -> DungeonEnemy:
+	for enemy: DungeonEnemy in dungeon_level.enemies:
+		if enemy.get_script() == enemy_type:
+			return enemy
+	return null
 
 
 func _set_all_floor(dungeon_level: DungeonLevel) -> void:
@@ -685,7 +740,7 @@ func test_defeating_impossible_trial_returns_with_twenty_hearts_and_respawned_mo
 	assert_eq(player.health.max_hearts, 20)
 	assert_eq(player.health.current_hearts, 20)
 	assert_eq(main_dungeon.enemies.size(), DungeonLevel.MONSTER_COUNT)
-	assert_not_null(main_dungeon.get_monster_spawner())
+	assert_null(main_dungeon.get_monster_spawner())
 
 
 func test_impossible_trial_uses_the_hired_fighter_after_the_player_falls() -> void:

@@ -22,6 +22,9 @@ const POSITION_LABEL_WIDTH: float = 144.0
 @onready var hireling_prompt_label: Label = $Hud/HirelingPromptPanel/PromptLabel
 @onready var tutorial_overlay: Control = $Hud/TutorialOverlay
 @onready var tutorial_panel: Panel = $Hud/TutorialOverlay/TutorialPanel
+@onready var difficulty_option_button: OptionButton = $Hud/TutorialOverlay/TutorialPanel/DifficultyOptionButton
+@onready var difficulty_info_label: Label = $Hud/TutorialOverlay/TutorialPanel/DifficultyInfoLabel
+@onready var objective_label: Label = $Hud/TutorialOverlay/TutorialPanel/ObjectiveLabel
 @onready var begin_button: Button = $Hud/TutorialOverlay/TutorialPanel/BeginButton
 @onready var home_panel: Panel = $Hud/HomePanel
 @onready var return_to_game_button: Button = $Hud/HomePanel/ReturnToGameButton
@@ -31,6 +34,8 @@ var active_dungeon_level: DungeonLevel
 var trial_level: DungeonLevel = null
 var _trial_player: DungeonEntity = null
 var _trial_return_cell: Vector2i = Vector2i.ZERO
+var selected_difficulty: DungeonLevel.Difficulty = DungeonLevel.Difficulty.NORMAL
+var _difficulty_applied: bool = false
 
 
 func _ready() -> void:
@@ -52,6 +57,7 @@ func _ready() -> void:
 	vendor_panel.trade_completed.connect(_on_vendor_trade_completed)
 	vendor_panel.close_requested.connect(_on_vendor_panel_close_requested)
 	begin_button.pressed.connect(_on_begin_button_pressed)
+	difficulty_option_button.item_selected.connect(_on_difficulty_selected)
 	return_to_game_button.pressed.connect(_on_return_to_game_button_pressed)
 	impossible_trial_button.pressed.connect(_on_impossible_trial_button_pressed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -61,6 +67,7 @@ func _ready() -> void:
 	wield_panel.refresh(player.inventory)
 	status_log.add_message("You enter the dungeon")
 	_update_trial_button_state()
+	_setup_difficulty_selector()
 	_layout_ui()
 	position_label.text = _get_position_text()
 	begin_button.grab_focus()
@@ -179,12 +186,17 @@ func _handle_key_event(event: InputEvent) -> void:
 	if key_event == null:
 		return
 	if tutorial_overlay.visible:
-		if key_event.pressed and not key_event.echo and (
-			_is_key(key_event, KEY_ENTER)
-			or _is_key(key_event, KEY_KP_ENTER)
-			or _is_key(key_event, KEY_SPACE)
-		):
-			_on_begin_button_pressed()
+		if key_event.pressed and not key_event.echo:
+			if (
+				_is_key(key_event, KEY_ENTER)
+				or _is_key(key_event, KEY_KP_ENTER)
+				or _is_key(key_event, KEY_SPACE)
+			):
+				_on_begin_button_pressed()
+			elif _is_key(key_event, KEY_LEFT) or _is_key(key_event, KEY_UP):
+				_select_adjacent_difficulty(-1)
+			elif _is_key(key_event, KEY_RIGHT) or _is_key(key_event, KEY_DOWN):
+				_select_adjacent_difficulty(1)
 		get_viewport().set_input_as_handled()
 		return
 	if game_over_panel.visible:
@@ -319,9 +331,48 @@ func _on_game_over() -> void:
 
 
 func _on_begin_button_pressed() -> void:
+	if not _difficulty_applied:
+		dungeon_level.set_difficulty(selected_difficulty)
+		_difficulty_applied = true
 	tutorial_overlay.visible = false
 	begin_button.release_focus()
-	status_log.add_message("Find the key, unlock the Boss Prison, and defeat the Cyclopes")
+	if dungeon_level.has_boss():
+		status_log.add_message("Find the key, unlock the Boss Prison, and defeat the Cyclopes")
+	else:
+		status_log.add_message("Explore the dungeon and survive")
+
+
+func _setup_difficulty_selector() -> void:
+	difficulty_option_button.clear()
+	difficulty_option_button.add_item("Easy", DungeonLevel.Difficulty.EASY)
+	difficulty_option_button.add_item("Normal", DungeonLevel.Difficulty.NORMAL)
+	difficulty_option_button.add_item("Hard", DungeonLevel.Difficulty.HARD)
+	difficulty_option_button.select(int(selected_difficulty))
+	_update_difficulty_info()
+
+
+func _on_difficulty_selected(index: int) -> void:
+	selected_difficulty = index as DungeonLevel.Difficulty
+	_update_difficulty_info()
+
+
+func _select_adjacent_difficulty(direction: int) -> void:
+	var next_index: int = clampi(int(selected_difficulty) + direction, 0, 2)
+	difficulty_option_button.select(next_index)
+	_on_difficulty_selected(next_index)
+
+
+func _update_difficulty_info() -> void:
+	match selected_difficulty:
+		DungeonLevel.Difficulty.EASY:
+			difficulty_info_label.text = "No boss or spawner. Enemies deal 1 less damage."
+			objective_label.text = "OBJECTIVE: EXPLORE THE DUNGEON AND SURVIVE."
+		DungeonLevel.Difficulty.HARD:
+			difficulty_info_label.text = "Default enemy damage. Boss and monster spawner enabled."
+			objective_label.text = "OBJECTIVE: FIND THE BOSS PRISON KEY, THEN DEFEAT THE CYCLOPES."
+		_:
+			difficulty_info_label.text = "Default enemy damage. Boss enabled."
+			objective_label.text = "OBJECTIVE: FIND THE BOSS PRISON KEY, THEN DEFEAT THE CYCLOPES."
 
 
 func _show_home_screen() -> void:
