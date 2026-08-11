@@ -14,12 +14,12 @@ signal player_control_changed(previous_player: DungeonEntity, current_player: Du
 signal game_over
 signal trial_completed
 
-const GRID_WIDTH: int = 60
-const GRID_HEIGHT: int = 42
+const GRID_WIDTH: int = 96
+const GRID_HEIGHT: int = 64
 const TILE_SIZE: int = 32
 const LIGHT_DIAMETER: int = 11
 const LIGHT_RADIUS: int = 5
-const ROOM_COUNT: int = 24
+const ROOM_COUNT: int = 48
 const WALL: int = 0
 const FLOOR: int = 1
 const ITEM_NAMES: Array[String] = ["Ancient Coin", "Crystal Shard"]
@@ -35,9 +35,9 @@ const ANCIENT_COIN_COUNT: int = 24
 const HIRELING_COST: int = 5
 const MONSTER_COUNT: int = 16
 const SKULL_ITEM_NAME: String = "Skull"
-const TRIAL_GRID_WIDTH: int = 52
-const TRIAL_GRID_HEIGHT: int = 36
-const TRIAL_ROOM_COUNT: int = 16
+const TRIAL_GRID_WIDTH: int = 80
+const TRIAL_GRID_HEIGHT: int = 54
+const TRIAL_ROOM_COUNT: int = 28
 const TRIAL_CYCLOPES_COUNT: int = 10
 const BOSS_PRISON_KEY: String = "Boss Prison Key"
 const BOSS_PRISON_KEY_ITEM_NAME: String = BOSS_PRISON_KEY

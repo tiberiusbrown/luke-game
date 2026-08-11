@@ -5,10 +5,12 @@ const LAYOUT_MARGIN: float = 16.0
 const PANEL_GAP: float = 16.0
 const STATUS_PANEL_WIDTH: float = 224.0
 const POSITION_LABEL_WIDTH: float = 144.0
+const MIN_MAP_SCALE: float = 0.55
 
 @onready var background: ColorRect = $Background
-@onready var dungeon_level: DungeonLevel = $DungeonLevel
-@onready var player: DungeonPlayer = $DungeonLevel/Player
+@onready var map_viewport: Control = $MapViewport
+@onready var dungeon_level: DungeonLevel = $MapViewport/DungeonLevel
+@onready var player: DungeonPlayer = $MapViewport/DungeonLevel/Player
 @onready var top_bar: ColorRect = $Hud/TopBar
 @onready var position_label: Label = $Hud/PositionLabel
 @onready var health_bar: HeartHealthBar = $Hud/HealthBar
@@ -76,6 +78,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	position_label.text = _get_position_text()
 	_update_hireling_notification()
+	_update_map_position()
 
 
 func _on_viewport_size_changed() -> void:
@@ -110,14 +113,18 @@ func _layout_ui() -> void:
 			maxf(1.0, status_bottom - status_top),
 		),
 	)
+	map_viewport.position = map_area.position
+	map_viewport.size = map_area.size
 	var map_size: Vector2 = active_dungeon_level.get_map_size()
-	var map_scale: float = minf(
+	var fitted_map_scale: float = minf(
 		map_area.size.x / map_size.x,
 		map_area.size.y / map_size.y,
 	)
+	var map_scale: float = maxf(fitted_map_scale, MIN_MAP_SCALE)
 	var scaled_map_size: Vector2 = map_size * map_scale
 	active_dungeon_level.scale = Vector2.ONE * map_scale
-	active_dungeon_level.position = map_area.position + (map_area.size - scaled_map_size) * 0.5
+	active_dungeon_level.position = (map_area.size - scaled_map_size) * 0.5
+	_update_map_position()
 	_center_panel(inventory_panel, map_area)
 	_center_panel(wield_panel, map_area)
 	_center_panel(vendor_panel, map_area)
@@ -134,6 +141,26 @@ func _layout_ui() -> void:
 	position_label.size = Vector2(
 		maxf(1.0, viewport_size.x - LAYOUT_MARGIN - position_left),
 		23.0,
+	)
+
+
+func _update_map_position() -> void:
+	if active_dungeon_level == null or not is_instance_valid(active_dungeon_level):
+		return
+	if map_viewport.size.x <= 0.0 or map_viewport.size.y <= 0.0:
+		return
+
+	var active_player: DungeonEntity = active_dungeon_level.get_player()
+	if active_player == null:
+		return
+
+	var scaled_map_size: Vector2 = active_dungeon_level.get_map_size() * active_dungeon_level.scale
+	var player_position: Vector2 = active_player.position * active_dungeon_level.scale
+	var centered_position: Vector2 = map_viewport.size * 0.5 - player_position
+	var minimum_position: Vector2 = map_viewport.size - scaled_map_size
+	active_dungeon_level.position = Vector2(
+		clampf(centered_position.x, minimum_position.x, 0.0),
+		clampf(centered_position.y, minimum_position.y, 0.0),
 	)
 
 
@@ -420,7 +447,7 @@ func _start_impossible_trial() -> void:
 	trial_level.configure_impossible_trial()
 	trial_level.trial_completed.connect(_on_trial_completed)
 	trial_level.game_over.connect(_on_trial_game_over)
-	add_child(trial_level)
+	map_viewport.add_child(trial_level)
 	trial_level.add_child(current_player)
 	trial_level.attach_player(current_player, trial_level.get_start_cell())
 	if current_player != player:

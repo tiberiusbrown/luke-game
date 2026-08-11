@@ -82,12 +82,17 @@ offset_bottom = 640.0
 mouse_filter = 2
 color = Color(0.035, 0.043, 0.071, 1)
 
-[node name="DungeonLevel" type="Node2D" parent="."]
-position = Vector2(80, 80)
+[node name="MapViewport" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+clip_contents = true
+
+[node name="DungeonLevel" type="Node2D" parent="MapViewport"]
 unique_name_in_owner = true
 script = ExtResource("2_dungeon")
 
-[node name="Player" type="CharacterBody2D" parent="DungeonLevel"]
+[node name="Player" type="CharacterBody2D" parent="MapViewport/DungeonLevel"]
 unique_name_in_owner = true
 script = ExtResource("3_player")
 

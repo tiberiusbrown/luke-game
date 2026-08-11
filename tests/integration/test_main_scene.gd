@@ -506,6 +506,7 @@ func test_main_scene_hands_control_to_the_hired_fighter_and_shows_game_over() ->
 func test_resizing_keeps_status_log_right_aligned_and_map_to_its_left() -> void:
 	var viewport: Viewport = main_scene.get_viewport()
 	var status_log: StatusLog = main_scene.get_node("%StatusLog") as StatusLog
+	var map_viewport: Control = main_scene.get_node("%MapViewport") as Control
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var original_viewport_size: Vector2 = viewport.size
 	var resized_viewport_size: Vector2 = Vector2(1280.0, 720.0)
@@ -516,11 +517,8 @@ func test_resizing_keeps_status_log_right_aligned_and_map_to_its_left() -> void:
 	var actual_viewport_size: Vector2 = main_scene.get_viewport_rect().size
 	assert_ne(actual_viewport_size, original_viewport_size)
 	assert_eq(status_log.position.x + status_log.size.x, actual_viewport_size.x - 16.0)
-	var map_size: Vector2 = Vector2(
-		DungeonLevel.GRID_WIDTH * DungeonLevel.TILE_SIZE,
-		DungeonLevel.GRID_HEIGHT * DungeonLevel.TILE_SIZE,
-	)
-	assert_lt(dungeon_level.position.x + dungeon_level.scale.x * map_size.x, status_log.position.x)
+	assert_lt(map_viewport.position.x + map_viewport.size.x, status_log.position.x)
+	assert_gte(dungeon_level.scale.x, 0.55)
 	assert_eq(main_scene.get_node("Background").size, actual_viewport_size)
 
 	viewport.size = original_viewport_size
