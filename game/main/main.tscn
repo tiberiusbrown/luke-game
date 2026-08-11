@@ -255,7 +255,7 @@ offset_top = 124.0
 offset_right = 498.0
 offset_bottom = 296.0
 theme_override_colors/font_color = Color(0.82, 0.87, 0.94, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 15
 text = "NO WIELDABLE WEAPONS"
 vertical_alignment = 1
 

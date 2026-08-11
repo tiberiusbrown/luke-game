@@ -287,6 +287,35 @@ func test_player_attacks_by_moving_into_an_enemy_and_uses_animation() -> void:
 	assert_eq(enemy.get_current_cell(), Vector2i(3, 2))
 
 
+func test_player_landed_attack_uses_one_hit_of_the_equipped_weapon() -> void:
+	player.hit_chance = 1.0
+	var weapon: WeaponData = WeaponData.new("Silver Sword", 2)
+	player.inventory.add_weapon(weapon)
+	assert_true(player.inventory.wield_weapon(weapon))
+	var enemy: ZombieEnemy = ZombieEnemy.new()
+	dungeon_level.spawn_enemy(enemy, Vector2i(3, 2))
+
+	assert_true(player.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(HitEffect.DURATION + 0.1).timeout
+
+	assert_eq(weapon.hits_remaining, 9)
+	assert_eq(player.inventory.get_equipped_weapon(), weapon)
+
+
+func test_missed_attack_does_not_use_weapon_durability() -> void:
+	player.hit_chance = 0.0
+	var weapon: WeaponData = WeaponData.new("Silver Sword", 2)
+	player.inventory.add_weapon(weapon)
+	assert_true(player.inventory.wield_weapon(weapon))
+	var enemy: ZombieEnemy = ZombieEnemy.new()
+	dungeon_level.spawn_enemy(enemy, Vector2i(3, 2))
+
+	assert_true(player.try_move(Vector2i(1, 0)))
+	await get_tree().create_timer(HitEffect.DURATION + 0.1).timeout
+
+	assert_eq(weapon.hits_remaining, 10)
+
+
 func test_lethal_player_attack_finishes_animation_after_target_is_freed() -> void:
 	player.hit_chance = 1.0
 	var enemy: ZombieEnemy = ZombieEnemy.new()

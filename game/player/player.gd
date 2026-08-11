@@ -17,6 +17,7 @@ func _init() -> void:
 	super._init()
 	health = HeartHealth.new(MAX_HEARTS)
 	speed = SPEED
+	inventory.inventory_changed.connect(_on_inventory_changed)
 
 
 func _ready() -> void:
@@ -74,6 +75,10 @@ func get_attack_damage() -> int:
 	return BASE_ATTACK_DAMAGE + weapon.attack_damage
 
 
+func get_held_weapon() -> WeaponData:
+	return inventory.get_equipped_weapon()
+
+
 func get_hit_chance() -> float:
 	return hit_chance
 
@@ -125,6 +130,10 @@ func _after_move() -> void:
 	_collect_item_at_current_cell()
 
 
+func _after_attack_landed(_target: DungeonEntity, _damage: int) -> void:
+	inventory.consume_equipped_weapon_hit()
+
+
 func _collect_item_at_current_cell() -> void:
 	if dungeon_level == null:
 		return
@@ -162,6 +171,10 @@ func _is_key(key_event: InputEventKey, key_code: int) -> bool:
 	return key_event.keycode == key_code or key_event.physical_keycode == key_code
 
 
+func _on_inventory_changed() -> void:
+	queue_redraw()
+
+
 func _draw() -> void:
 	draw_circle(Vector2(2, 4), 11.0, Color(0.0, 0.0, 0.0, 0.25))
 	draw_circle(Vector2.ZERO, 10.0, Color("#e7eef4"))
@@ -169,3 +182,4 @@ func _draw() -> void:
 	draw_circle(Vector2(-3, -2), 1.5, Color("#f5f7fa"))
 	draw_circle(Vector2(3, -2), 1.5, Color("#f5f7fa"))
 	draw_arc(Vector2.ZERO, 10.0, 0.0, TAU, 24, Color("#b9d4e8"), 2.0)
+	_draw_held_weapon()

@@ -77,7 +77,13 @@ func _update_labels() -> void:
 		var marker: String = ">" if weapon_index == selected_index else " "
 		var wielded_text: String = "  WIELDED" if _inventory != null and _inventory.is_weapon_wielded(weapon) else ""
 		item_lines.append(
-			"%s %s   %d HEARTS/HIT%s" % [marker, weapon.weapon_name.to_upper(), weapon.attack_damage, wielded_text]
+			"%s %s   %d HEARTS/HIT   %d HITS LEFT%s" % [
+				marker,
+				weapon.weapon_name.to_upper(),
+				weapon.attack_damage,
+				weapon.hits_remaining,
+				wielded_text,
+			]
 		)
 	item_list_label.text = "\n".join(item_lines)
 

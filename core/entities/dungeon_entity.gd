@@ -218,6 +218,7 @@ func _resolve_attack(target: DungeonEntity) -> void:
 	var damage_dealt: int = target.take_damage(get_attack_damage())
 	if damage_dealt > 0:
 		attack_landed.emit(self, target, damage_dealt)
+		_after_attack_landed(target, damage_dealt)
 		if dungeon_level != null:
 			dungeon_level.report_attack(self, target, true, damage_dealt)
 
@@ -242,6 +243,42 @@ func _finish_attack() -> void:
 
 func _after_move() -> void:
 	pass
+
+
+func _after_attack_landed(_target: DungeonEntity, _damage: int) -> void:
+	pass
+
+
+func get_held_weapon() -> WeaponData:
+	return null
+
+
+func _draw_held_weapon() -> void:
+	var weapon: WeaponData = get_held_weapon()
+	if weapon == null:
+		return
+
+	var weapon_color: Color = Color("#d08d5c") if weapon.get_material_name() == "gold" else Color("#c7cedc")
+	var weapon_shadow: Color = weapon_color.darkened(0.35)
+	var weapon_kind: String = weapon.weapon_name.to_lower()
+	if weapon_kind.contains("spear"):
+		draw_line(Vector2(7, 4), Vector2(18, -10), weapon_shadow, 3.0)
+		draw_line(Vector2(8, 3), Vector2(18, -10), weapon_color, 2.0)
+		draw_colored_polygon(PackedVector2Array([Vector2(18, -14), Vector2(21, -8), Vector2(16, -9)]), weapon_color)
+	elif weapon_kind.contains("axe"):
+		draw_line(Vector2(7, 5), Vector2(17, -8), weapon_shadow, 3.0)
+		draw_colored_polygon(PackedVector2Array([Vector2(13, -11), Vector2(21, -9), Vector2(19, -2), Vector2(14, -4)]), weapon_color)
+	elif weapon_kind.contains("mace") or weapon_kind.contains("hammer"):
+		draw_line(Vector2(7, 5), Vector2(16, -6), weapon_shadow, 3.0)
+		draw_circle(Vector2(18, -9), 4.0, weapon_color)
+		draw_circle(Vector2(18, -9), 2.0, weapon_color.lightened(0.25))
+	elif weapon_kind.contains("dagger"):
+		draw_line(Vector2(7, 5), Vector2(15, -3), weapon_shadow, 3.0)
+		draw_colored_polygon(PackedVector2Array([Vector2(13, -5), Vector2(21, -9), Vector2(16, -2)]), weapon_color)
+	else:
+		draw_line(Vector2(7, 5), Vector2(19, -9), weapon_shadow, 4.0)
+		draw_line(Vector2(8, 4), Vector2(19, -9), weapon_color, 2.0)
+		draw_line(Vector2(8, 1), Vector2(13, 5), weapon_color, 2.0)
 
 
 func _can_attack_target(_target: DungeonEntity) -> bool:

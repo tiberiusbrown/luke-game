@@ -5,6 +5,7 @@ signal inventory_changed
 signal weapon_equipped(weapon: WeaponData)
 signal weapon_wielded(weapon: WeaponData)
 signal weapon_unwielded(weapon: WeaponData)
+signal weapon_broken(weapon: WeaponData)
 
 var _items: Array[String] = []
 var _regular_items: Array[String] = []
@@ -69,6 +70,14 @@ func get_weapons() -> Array[WeaponData]:
 	return weapons
 
 
+func get_weapons_named(weapon_name: String) -> Array[WeaponData]:
+	var matching_weapons: Array[WeaponData] = []
+	for weapon: WeaponData in _weapons:
+		if weapon.weapon_name == weapon_name:
+			matching_weapons.append(weapon)
+	return matching_weapons
+
+
 func get_healing_items() -> Array[HealingItemData]:
 	var healing_items: Array[HealingItemData] = []
 	for healing_item: HealingItemData in _healing_items:
@@ -117,7 +126,11 @@ func add_trade_entry(entry: Dictionary) -> void:
 
 
 func get_wieldable_weapons() -> Array[WeaponData]:
-	return get_weapons()
+	var wieldable_weapons: Array[WeaponData] = []
+	for weapon: WeaponData in _weapons:
+		if not weapon.is_broken():
+			wieldable_weapons.append(weapon)
+	return wieldable_weapons
 
 
 func get_equipped_weapon() -> WeaponData:
@@ -129,7 +142,7 @@ func is_weapon_wielded(weapon: WeaponData) -> bool:
 
 
 func wield_weapon(weapon: WeaponData) -> bool:
-	if weapon == null or not _contains_weapon(weapon):
+	if weapon == null or weapon.is_broken() or not _contains_weapon(weapon):
 		return false
 	if equipped_weapon == weapon:
 		return true
@@ -214,6 +227,19 @@ func get_weapon_attack_damage(weapon_name: String) -> int:
 		if weapon.weapon_name == weapon_name:
 			return weapon.attack_damage
 	return 0
+
+
+func consume_equipped_weapon_hit() -> void:
+	if equipped_weapon == null or not _contains_weapon(equipped_weapon):
+		return
+
+	var weapon: WeaponData = equipped_weapon
+	var did_break: bool = weapon.use_hit()
+	if did_break:
+		weapon_broken.emit(weapon)
+		remove_weapon(weapon)
+	else:
+		inventory_changed.emit()
 
 
 func get_total_item_count() -> int:

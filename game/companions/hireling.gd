@@ -17,6 +17,7 @@ func _init() -> void:
 	super._init()
 	health = HeartHealth.new(MAX_HEARTS)
 	speed = SPEED
+	inventory.inventory_changed.connect(_on_inventory_changed)
 
 
 func _ready() -> void:
@@ -41,7 +42,12 @@ func set_controlled(controlled: bool) -> void:
 func set_inventory(new_inventory: PlayerInventory) -> void:
 	if new_inventory == null:
 		return
+	if inventory != new_inventory and inventory.inventory_changed.is_connected(_on_inventory_changed):
+		inventory.inventory_changed.disconnect(_on_inventory_changed)
 	inventory = new_inventory
+	if not inventory.inventory_changed.is_connected(_on_inventory_changed):
+		inventory.inventory_changed.connect(_on_inventory_changed)
+	queue_redraw()
 
 
 func take_turn() -> bool:
@@ -69,6 +75,10 @@ func take_turn() -> bool:
 
 func get_attack_damage() -> int:
 	return ATTACK_DAMAGE
+
+
+func get_held_weapon() -> WeaponData:
+	return inventory.get_equipped_weapon()
 
 
 func get_hit_chance() -> float:
@@ -106,6 +116,10 @@ func _after_move() -> void:
 		inventory.add_weapon(pickup.weapon_data)
 	else:
 		inventory.add_item(pickup.item_name)
+
+
+func _after_attack_landed(_target: DungeonEntity, _damage: int) -> void:
+	inventory.consume_equipped_weapon_hit()
 
 
 func _get_nearest_enemy() -> DungeonEnemy:
@@ -175,6 +189,10 @@ func _get_manhattan_distance(first_cell: Vector2i, second_cell: Vector2i) -> int
 	return abs(difference.x) + abs(difference.y)
 
 
+func _on_inventory_changed() -> void:
+	queue_redraw()
+
+
 func _draw() -> void:
 	draw_circle(Vector2(2, 6), 12.0, Color(0.0, 0.0, 0.0, 0.34))
 
@@ -219,6 +237,7 @@ func _draw() -> void:
 	draw_line(Vector2(8, 2), Vector2(14, -9), armor_highlight, 2.5)
 	draw_line(Vector2(6, 3), Vector2(10, 7), armor_highlight.darkened(0.25), 2.0)
 	draw_arc(Vector2.ZERO, 10.5, 0.0, TAU, 24, armor_highlight, 1.5)
+	_draw_held_weapon()
 
 
 func _on_defeated() -> void:

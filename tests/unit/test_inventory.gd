@@ -73,3 +73,31 @@ func test_weapon_damage_is_limited_to_two_or_three_hearts() -> void:
 
 	assert_eq(weak_weapon.attack_damage, 2)
 	assert_eq(strong_weapon.attack_damage, 3)
+
+
+func test_silver_and_gold_weapons_have_the_requested_durability() -> void:
+	var silver_weapon: WeaponData = WeaponData.new("Silver Sword", 2)
+	var gold_weapon: WeaponData = WeaponData.new("Gold Axe", 3)
+
+	assert_eq(silver_weapon.get_max_hits(), 10)
+	assert_eq(silver_weapon.hits_remaining, 10)
+	assert_eq(gold_weapon.get_max_hits(), 7)
+	assert_eq(gold_weapon.hits_remaining, 7)
+
+
+func test_equipped_weapon_breaks_and_is_removed_after_its_last_hit() -> void:
+	var weapon: WeaponData = WeaponData.new("Gold Axe", 3)
+	inventory.add_weapon(weapon)
+	assert_true(inventory.wield_weapon(weapon))
+
+	for _hit_index: int in range(6):
+		inventory.consume_equipped_weapon_hit()
+
+	assert_eq(weapon.hits_remaining, 1)
+	assert_eq(inventory.get_equipped_weapon(), weapon)
+
+	inventory.consume_equipped_weapon_hit()
+
+	assert_true(weapon.is_broken())
+	assert_null(inventory.get_equipped_weapon())
+	assert_true(inventory.get_weapons().is_empty())
