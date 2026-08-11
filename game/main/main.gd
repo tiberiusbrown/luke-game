@@ -29,6 +29,7 @@ const POSITION_LABEL_WIDTH: float = 144.0
 
 var active_dungeon_level: DungeonLevel
 var trial_level: DungeonLevel = null
+var _trial_player: DungeonEntity = null
 var _trial_return_cell: Vector2i = Vector2i.ZERO
 
 
@@ -223,6 +224,9 @@ func _handle_key_event(event: InputEvent) -> void:
 		inventory_panel.visible = false
 		wield_panel.refresh(player.inventory)
 		get_viewport().set_input_as_handled()
+	elif _is_key(key_event, KEY_R):
+		player.use_first_healing_item()
+		get_viewport().set_input_as_handled()
 	elif _is_key(key_event, KEY_H):
 		_show_home_screen()
 		get_viewport().set_input_as_handled()
@@ -343,19 +347,32 @@ func _on_impossible_trial_button_pressed() -> void:
 func _start_impossible_trial() -> void:
 	home_panel.visible = false
 	get_tree().paused = false
-	_trial_return_cell = player.current_cell
-	dungeon_level.suspend_player(player)
+	var current_player: DungeonEntity = _get_active_player()
+	if current_player == null:
+		return
+	_trial_player = current_player
+	_trial_return_cell = current_player.current_cell
+	dungeon_level.suspend_player(current_player)
 	dungeon_level.process_mode = Node.PROCESS_MODE_DISABLED
 	dungeon_level.visible = false
-	dungeon_level.remove_child(player)
+	if player.get_parent() == dungeon_level:
+		dungeon_level.remove_child(player)
+	if current_player.get_parent() == dungeon_level:
+		dungeon_level.remove_child(current_player)
 
 	trial_level = DungeonLevel.new()
 	trial_level.configure_impossible_trial()
 	trial_level.trial_completed.connect(_on_trial_completed)
 	trial_level.game_over.connect(_on_trial_game_over)
 	add_child(trial_level)
-	trial_level.add_child(player)
-	trial_level.attach_player(player, trial_level.get_start_cell())
+	trial_level.add_child(current_player)
+	trial_level.attach_player(current_player, trial_level.get_start_cell())
+	if current_player != player:
+		# DungeonPlayer owns the shared keyboard input and acts as a hidden input
+		# proxy while the hired fighter is the active trial character.
+		trial_level.add_child(player)
+		player.setup(trial_level, trial_level.get_start_cell())
+		player.visible = false
 	trial_level.visible = true
 	active_dungeon_level = trial_level
 	impossible_trial_button.disabled = true
@@ -364,20 +381,27 @@ func _start_impossible_trial() -> void:
 
 
 func _on_trial_completed() -> void:
-	if trial_level == null:
+	if trial_level == null or _trial_player == null:
 		return
 
 	var finished_trial: DungeonLevel = trial_level
-	finished_trial.suspend_player(player)
-	finished_trial.remove_child(player)
+	finished_trial.suspend_player(_trial_player)
+	finished_trial.remove_child(_trial_player)
+	if player.get_parent() == finished_trial:
+		finished_trial.remove_child(player)
 	finished_trial.queue_free()
 	trial_level = null
 
-	dungeon_level.add_child(player)
+	dungeon_level.add_child(_trial_player)
 	dungeon_level.process_mode = Node.PROCESS_MODE_INHERIT
 	dungeon_level.visible = true
-	dungeon_level.attach_player(player, _trial_return_cell)
-	player.health.set_max_hearts(20, true)
+	dungeon_level.attach_player(_trial_player, _trial_return_cell)
+	_trial_player.health.set_max_hearts(20, true)
+	if _trial_player != player:
+		dungeon_level.add_child(player)
+		player.setup(dungeon_level, _trial_return_cell)
+		player.visible = false
+	_trial_player = null
 	dungeon_level.respawn_all_mobs()
 	active_dungeon_level = dungeon_level
 	impossible_trial_button.disabled = false

@@ -512,14 +512,15 @@ func suspend_player(player: DungeonEntity) -> void:
 	_refresh_visibility()
 
 
-func attach_player(player: DungeonPlayer, cell: Vector2i) -> void:
+func attach_player(player: DungeonEntity, cell: Vector2i) -> void:
 	if player == null:
 		return
 	player.setup(self, cell)
 	if not entities.has(player):
 		register_entity(player)
-	elif active_player == null:
+	if active_player == null:
 		_set_active_player(player)
+	_refresh_visibility()
 
 
 func begin_player_action(player: DungeonEntity) -> bool:

@@ -484,6 +484,48 @@ func test_i_toggles_inventory_panel() -> void:
 	assert_false(inventory_panel.visible)
 
 
+func test_r_heals_the_controlled_hireling_through_main_input() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var hireling: DungeonHireling = dungeon_level.get_hireling()
+	var adjacent_cell: Vector2i = _get_adjacent_empty_cell(dungeon_level, hireling.current_cell)
+	player.current_cell = adjacent_cell
+	player.position = dungeon_level.cell_to_world(adjacent_cell)
+	for _coin_index: int in range(DungeonLevel.HIRELING_COST):
+		player.inventory.add_item("Ancient Coin")
+
+	assert_true(dungeon_level.interact_with_hireling(player.current_cell, player.inventory))
+	player.take_damage(DungeonPlayer.MAX_HEARTS)
+	hireling.take_damage(5)
+	player.inventory.add_item("Crimson Draught")
+
+	var heal_event: InputEventKey = InputEventKey.new()
+	heal_event.keycode = KEY_R
+	heal_event.pressed = true
+	main_scene._input(heal_event)
+
+	assert_eq(hireling.health.current_hearts, DungeonHireling.MAX_HEARTS)
+	assert_eq(player.inventory.get_item_count("Crimson Draught"), 0)
+
+
+func test_inventory_panel_scrolls_when_the_item_list_is_long() -> void:
+	var inventory_panel: InventoryPanel = main_scene.get_node("%InventoryPanel") as InventoryPanel
+	var item_list_scroll: ScrollContainer = main_scene.get_node(
+		"%InventoryPanel/ItemListScroll"
+	) as ScrollContainer
+	var item_list_label: Label = main_scene.get_node("%ItemListLabel") as Label
+
+	for item_index: int in range(16):
+		main_scene.player.inventory.add_item("Unique Item %02d" % item_index)
+	inventory_panel.refresh(main_scene.player.inventory)
+	inventory_panel.visible = true
+	await get_tree().process_frame
+
+	assert_gt(item_list_label.size.y, item_list_scroll.size.y)
+	assert_gt(item_list_scroll.get_v_scroll_bar().max_value, 0.0)
+	assert_true(item_list_label.text.contains("UNIQUE ITEM 15"))
+
+
 func test_w_opens_wield_panel_without_moving_the_player() -> void:
 	var wield_panel: WieldPanel = main_scene.get_node("%WieldPanel") as WieldPanel
 	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
@@ -644,3 +686,32 @@ func test_defeating_impossible_trial_returns_with_twenty_hearts_and_respawned_mo
 	assert_eq(player.health.current_hearts, 20)
 	assert_eq(main_dungeon.enemies.size(), DungeonLevel.MONSTER_COUNT)
 	assert_not_null(main_dungeon.get_monster_spawner())
+
+
+func test_impossible_trial_uses_the_hired_fighter_after_the_player_falls() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var hireling: DungeonHireling = dungeon_level.get_hireling()
+	var adjacent_cell: Vector2i = _get_adjacent_empty_cell(dungeon_level, hireling.current_cell)
+	player.current_cell = adjacent_cell
+	player.position = dungeon_level.cell_to_world(adjacent_cell)
+	for _coin_index: int in range(DungeonLevel.HIRELING_COST):
+		player.inventory.add_item("Ancient Coin")
+
+	assert_true(dungeon_level.interact_with_hireling(player.current_cell, player.inventory))
+	player.take_damage(DungeonPlayer.MAX_HEARTS)
+	assert_eq(dungeon_level.get_player(), hireling)
+
+	for _skull_index: int in range(5):
+		player.inventory.add_item(DungeonLevel.SKULL_ITEM_NAME)
+	main_scene._start_impossible_trial()
+	await get_tree().process_frame
+
+	var trial: DungeonLevel = main_scene.trial_level
+	assert_not_null(trial)
+	if trial == null:
+		return
+	assert_eq(trial.get_player(), hireling)
+	assert_true(trial.is_cell_known(trial.get_start_cell()))
+	assert_true(hireling.visible)
+	assert_eq(player.get_parent(), trial)

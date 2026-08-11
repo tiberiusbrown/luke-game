@@ -104,8 +104,14 @@ func heal(healing_hearts: int) -> int:
 
 
 func use_first_healing_item() -> int:
+	var healing_target: DungeonEntity = self
+	if dungeon_level != null:
+		var active_player: DungeonEntity = dungeon_level.get_player()
+		if active_player != null:
+			healing_target = active_player
+
 	for healing_item: HealingItemData in inventory.get_healing_items():
-		var healed_hearts: int = heal(healing_item.healing_hearts)
+		var healed_hearts: int = healing_target.health.heal(healing_item.healing_hearts)
 		if healed_hearts <= 0:
 			continue
 		if not inventory.remove_healing_item(healing_item):

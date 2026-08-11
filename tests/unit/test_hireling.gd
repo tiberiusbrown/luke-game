@@ -130,6 +130,22 @@ func test_input_controls_the_hireling_after_player_death() -> void:
 	assert_eq(hireling.get_current_cell(), Vector2i(4, 2))
 
 
+func test_input_heals_the_controlled_hireling() -> void:
+	_hire_hireling()
+	player.take_damage(DungeonPlayer.MAX_HEARTS)
+	hireling.take_damage(5)
+	player.inventory.add_item("Crimson Draught")
+
+	var heal_event: InputEventKey = InputEventKey.new()
+	heal_event.keycode = KEY_R
+	heal_event.pressed = true
+	player._unhandled_input(heal_event)
+
+	assert_eq(hireling.health.current_hearts, 13)
+	assert_eq(player.health.current_hearts, 0)
+	assert_eq(player.inventory.get_item_count("Crimson Draught"), 0)
+
+
 func test_controlled_hireling_picks_up_items_into_the_player_inventory() -> void:
 	_hire_hireling()
 	player.take_damage(DungeonPlayer.MAX_HEARTS)

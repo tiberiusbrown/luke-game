@@ -171,6 +171,24 @@ func test_monster_spawner_caps_and_replenishes_spawned_monsters() -> void:
 	assert_eq(spawner.get_spawned_monster_count(), 10)
 
 
+func test_monster_spawner_replaces_all_ten_defeated_monsters() -> void:
+	var spawner: MonsterSpawner = dungeon_level.get_monster_spawner()
+	var initial_enemy_count: int = dungeon_level.enemies.size()
+
+	assert_eq(spawner.spawn_monsters(), MonsterSpawner.MAX_SPAWNED_MONSTERS)
+	var spawned_monsters: Array[DungeonEnemy] = []
+	for enemy: DungeonEnemy in dungeon_level.enemies.slice(initial_enemy_count):
+		spawned_monsters.append(enemy)
+
+	assert_eq(spawned_monsters.size(), MonsterSpawner.MAX_SPAWNED_MONSTERS)
+	for enemy: DungeonEnemy in spawned_monsters:
+		enemy.take_damage(enemy.health.current_hearts)
+
+	assert_eq(spawner.get_spawned_monster_count(), 0)
+	assert_eq(spawner.spawn_monsters(), MonsterSpawner.MAX_SPAWNED_MONSTERS)
+	assert_eq(spawner.get_spawned_monster_count(), MonsterSpawner.MAX_SPAWNED_MONSTERS)
+
+
 func test_timed_spawned_monsters_are_scheduled_and_can_attack() -> void:
 	var spawner: MonsterSpawner = dungeon_level.get_monster_spawner()
 	dungeon_level._clear_enemies()
