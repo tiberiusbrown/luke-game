@@ -55,6 +55,18 @@ func get_display_name() -> String:
 	return VENDOR_NAME
 
 
+func get_interaction_title() -> String:
+	return "ROOK'S EXCHANGE"
+
+
+func get_stock_label() -> String:
+	return "ROOK'S STOCK"
+
+
+func get_trade_status() -> String:
+	return "ONE ANCIENT COIN FOR ONE ITEM"
+
+
 func set_explored_state(lit: bool, known: bool) -> void:
 	is_lit = lit
 	is_known = known

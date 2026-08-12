@@ -321,6 +321,164 @@ func test_main_scene_contains_a_dedicated_vendor_room() -> void:
 	assert_eq(vendor.inventory.get_total_item_count(), 10)
 
 
+func test_main_scene_contains_a_castle_with_two_specialized_shops_and_npcs() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var castle_area: Rect2i = dungeon_level.get_castle_area()
+
+	assert_ne(castle_area.size, Vector2i.ZERO)
+	assert_false(castle_area.has_point(dungeon_level.get_start_cell()))
+	assert_eq(dungeon_level.castle_npcs.size(), 2)
+	assert_eq(dungeon_level.castle_knights.size(), 3)
+	assert_not_null(dungeon_level.get_weapon_shop())
+	assert_not_null(dungeon_level.get_healing_shop())
+	assert_eq(dungeon_level.get_weapon_shop().inventory.get_weapons().size(), 4)
+	assert_eq(dungeon_level.get_healing_shop().inventory.get_healing_items().size(), 5)
+	for cell: Vector2i in dungeon_level.monster_spawn_cells:
+		assert_false(dungeon_level.is_safe_area_cell(cell))
+
+
+func test_castle_weapon_shop_opens_and_sells_a_weapon() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var vendor_panel: VendorPanel = main_scene.get_node("%VendorPanel") as VendorPanel
+	var shop: DungeonShop = dungeon_level.get_weapon_shop()
+	player.current_cell = _get_adjacent_walkable_cell(dungeon_level, shop.cell)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+	player.inventory.add_item("Ancient Coin")
+
+	var interact_event: InputEventKey = InputEventKey.new()
+	interact_event.keycode = KEY_E
+	interact_event.pressed = true
+	player._unhandled_input(interact_event)
+
+	assert_true(vendor_panel.visible)
+	assert_eq(vendor_panel.title_label.text, "THE CASTLE ARMORY")
+	var exchange_event: InputEventKey = InputEventKey.new()
+	exchange_event.keycode = KEY_ENTER
+	exchange_event.pressed = true
+	main_scene._input(exchange_event)
+
+	assert_eq(player.inventory.get_item_count("Ancient Coin"), 0)
+	assert_eq(player.inventory.get_item_count("Moonsteel Blade"), 1)
+
+
+func test_castle_npc_interaction_reports_dialogue() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var npc: DungeonCastleNpc = dungeon_level.castle_npcs[0]
+	player.current_cell = _get_adjacent_walkable_cell(dungeon_level, npc.cell)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+
+	var interact_event: InputEventKey = InputEventKey.new()
+	interact_event.keycode = KEY_E
+	interact_event.pressed = true
+	player._unhandled_input(interact_event)
+
+	var status_log: StatusLog = main_scene.get_node("%StatusLog") as StatusLog
+	assert_true(status_log.get_messages().has("%s: %s" % [npc.get_display_name(), npc.get_dialogue()]))
+
+
+func test_castle_knight_can_be_hired() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var knight: DungeonHireling = dungeon_level.castle_knights[0]
+	player.current_cell = _get_adjacent_walkable_cell(dungeon_level, knight.current_cell)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+	for _coin_index: int in range(DungeonLevel.CASTLE_KNIGHT_COST):
+		player.inventory.add_item("Ancient Coin")
+
+	assert_true(dungeon_level.interact_with_castle_knight(player.current_cell, player.inventory))
+	assert_true(knight.is_hired)
+	assert_eq(player.inventory.get_item_count("Ancient Coin"), 0)
+
+
+func test_all_three_castle_knights_are_independently_hireable() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	for knight: DungeonHireling in dungeon_level.castle_knights:
+		player.current_cell = _get_adjacent_walkable_cell(dungeon_level, knight.current_cell)
+		player.position = dungeon_level.cell_to_world(player.current_cell)
+		for _coin_index: int in range(DungeonLevel.CASTLE_KNIGHT_COST):
+			player.inventory.add_item("Ancient Coin")
+		assert_true(dungeon_level.interact_with_castle_knight(player.current_cell, player.inventory))
+		assert_true(knight.is_hired)
+	assert_true(dungeon_level.has_hired_companion())
+
+
+func test_castle_knights_are_hidden_outside_the_player_light_radius() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var knight: DungeonHireling = dungeon_level.castle_knights[0]
+	knight.current_cell = player.current_cell + Vector2i(12, 12)
+	knight.position = dungeon_level.cell_to_world(knight.current_cell)
+	dungeon_level.refresh_visibility()
+
+	assert_false(knight.visible)
+
+
+func test_quest_board_opens_a_quest_panel() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var quest_panel: QuestPanel = main_scene.get_node("%QuestPanel") as QuestPanel
+	var board: DungeonQuestBoard = dungeon_level.get_quest_board()
+	player.current_cell = _get_adjacent_walkable_cell(dungeon_level, board.cell)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+
+	var interact_event: InputEventKey = InputEventKey.new()
+	interact_event.keycode = KEY_E
+	interact_event.pressed = true
+	player._unhandled_input(interact_event)
+
+	assert_true(quest_panel.visible)
+	assert_true(quest_panel.get_node("QuestListLabel").text.contains("CASTLE WATCH"))
+
+
+func test_quest_can_be_activated_completed_and_claimed_for_coins() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var board: DungeonQuestBoard = dungeon_level.get_quest_board()
+	var adjacent_cell: Vector2i = _get_adjacent_walkable_cell(dungeon_level, board.cell)
+	player.current_cell = adjacent_cell
+	player.position = dungeon_level.cell_to_world(adjacent_cell)
+
+	assert_true(dungeon_level.interact_with_quest_board(player.current_cell))
+	var enter_event: InputEventKey = InputEventKey.new()
+	enter_event.keycode = KEY_ENTER
+	enter_event.pressed = true
+	main_scene._input(enter_event)
+	assert_eq(board.active_index, 0)
+
+	for _enemy_index: int in range(3):
+		board.notify_enemy_defeated("Skeleton")
+	assert_true(board.is_active_complete())
+	main_scene._input(enter_event)
+
+	assert_eq(player.inventory.get_item_count("Ancient Coin"), 5)
+	assert_eq(board.active_index, -1)
+
+	board.selected_index = 0
+	assert_true(board.activate_selected_quest())
+	for _enemy_index: int in range(3):
+		board.notify_enemy_defeated("Skeleton")
+	assert_true(board.claim_active_quest(player.inventory))
+	assert_eq(player.inventory.get_item_count("Ancient Coin"), 10)
+
+
+func test_quest_board_changes_targets_and_rewards_by_difficulty() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var board: DungeonQuestBoard = dungeon_level.get_quest_board()
+
+	dungeon_level.set_difficulty(DungeonLevel.Difficulty.EASY)
+	assert_eq(board.get_difficulty_name(), "EASY")
+	assert_eq(int(board.get_quests()[0]["target"]), 2)
+	assert_eq(str(board.get_quests()[0]["reward"]), "4 Ancient Coins")
+
+	dungeon_level.set_difficulty(DungeonLevel.Difficulty.HARD)
+	assert_eq(board.get_difficulty_name(), "HARD")
+	assert_eq(int(board.get_quests()[0]["target"]), 5)
+	assert_eq(str(board.get_quests()[0]["reward"]), "8 Ancient Coins")
+
+
 func test_vendor_opens_when_player_presses_e_while_adjacent() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
@@ -518,6 +676,8 @@ func test_resizing_keeps_status_log_right_aligned_and_map_to_its_left() -> void:
 	assert_ne(actual_viewport_size, original_viewport_size)
 	assert_eq(status_log.position.x + status_log.size.x, actual_viewport_size.x - 16.0)
 	assert_lt(map_viewport.position.x + map_viewport.size.x, status_log.position.x)
+	assert_true(status_log.clip_contents)
+	assert_eq(status_log.get_node("%LogMessageLabel").size.x, status_log.size.x - 40.0)
 	assert_gte(dungeon_level.scale.x, 0.55)
 	assert_eq(main_scene.get_node("Background").size, actual_viewport_size)
 

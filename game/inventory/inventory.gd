@@ -250,6 +250,15 @@ func is_empty() -> bool:
 	return _items.is_empty()
 
 
+func clear() -> void:
+	_items.clear()
+	_regular_items.clear()
+	_healing_items.clear()
+	_weapons.clear()
+	equipped_weapon = null
+	inventory_changed.emit()
+
+
 func _contains_weapon(weapon: WeaponData) -> bool:
 	for stored_weapon: WeaponData in _weapons:
 		if stored_weapon == weapon:

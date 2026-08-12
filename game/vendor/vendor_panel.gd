@@ -10,6 +10,9 @@ const MAX_VISIBLE_ENTRIES: int = 8
 @onready var vendor_stock_label: Label = %VendorStockLabel
 @onready var selected_side_label: Label = %SelectedSideLabel
 @onready var trade_status_label: Label = %TradeStatusLabel
+@onready var title_label: Label = $TitleLabel
+@onready var hint_label: Label = $HintLabel
+@onready var vendor_header: Label = $VendorHeader
 
 var _vendor: DungeonVendor = null
 var _player_inventory: PlayerInventory = null
@@ -25,8 +28,11 @@ func show_vendor(vendor: DungeonVendor, player_inventory: PlayerInventory) -> vo
 	_vendor = vendor
 	_player_inventory = player_inventory
 	_selected_side = 0
-	_status_message = "ONE ANCIENT COIN FOR ONE ITEM"
+	_status_message = vendor.get_trade_status()
 	visible = true
+	title_label.text = vendor.get_interaction_title()
+	hint_label.text = "ANCIENT COINS ONLY    ARROWS SELECT    ENTER TRADE    ESC CLOSE"
+	vendor_header.text = vendor.get_stock_label()
 	refresh()
 
 
@@ -36,6 +42,10 @@ func refresh() -> void:
 	_player_selected_index = _clamp_index(_player_selected_index, _player_entries.size())
 	_vendor_selected_index = _clamp_index(_vendor_selected_index, _vendor_entries.size())
 	_update_labels()
+
+
+func get_active_vendor_name() -> String:
+	return _vendor.get_display_name() if _vendor != null else "Vendor"
 
 
 func handle_key(key_event: InputEventKey) -> bool:

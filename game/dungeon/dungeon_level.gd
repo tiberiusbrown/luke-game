@@ -8,6 +8,9 @@ signal dungeon_generated(start_cell: Vector2i, exit_cell: Vector2i)
 signal item_collected(item_name: String, cell: Vector2i)
 signal combat_event(message: String)
 signal vendor_interaction_requested(vendor: DungeonVendor)
+signal shop_interaction_requested(shop: DungeonShop)
+signal npc_interaction_requested(npc: DungeonCastleNpc)
+signal quest_board_interaction_requested(board: DungeonQuestBoard)
 signal companion_event(message: String)
 signal prison_event(message: String)
 signal player_control_changed(previous_player: DungeonEntity, current_player: DungeonEntity)
@@ -43,6 +46,8 @@ const BOSS_PRISON_KEY: String = "Boss Prison Key"
 const BOSS_PRISON_KEY_ITEM_NAME: String = BOSS_PRISON_KEY
 const PRISON_ROOM_SIZE: Vector2i = Vector2i(8, 7)
 const PRISON_ROOM_MARGIN: int = 2
+const CASTLE_SIZE: Vector2i = Vector2i(12, 9)
+const CASTLE_KNIGHT_COST: int = 5
 const WEAPON_DEFINITIONS: Array[Dictionary] = [
 	{"name": "Rusty Sword", "damage": 2},
 	{"name": "Bone Axe", "damage": 3},
@@ -63,6 +68,14 @@ var monster_spawn_cells: Array[Vector2i] = []
 var vendor_room: Rect2i = Rect2i()
 var vendor_cell: Vector2i = Vector2i.ZERO
 var vendor: DungeonVendor = null
+var castle_area: Rect2i = Rect2i()
+var castle_npcs: Array[DungeonCastleNpc] = []
+var castle_knights: Array[DungeonHireling] = []
+var quest_board: DungeonQuestBoard = null
+var weapon_shop: DungeonShop = null
+var healing_shop: DungeonShop = null
+var weapon_shop_cell: Vector2i = Vector2i.ZERO
+var healing_shop_cell: Vector2i = Vector2i.ZERO
 var hireling_cell: Vector2i = Vector2i.ZERO
 var hireling: DungeonHireling = null
 var has_hired_hireling: bool = false
@@ -106,6 +119,8 @@ func configure_impossible_trial() -> void:
 
 func set_difficulty(new_difficulty: Difficulty) -> void:
 	difficulty = new_difficulty
+	if quest_board != null and is_instance_valid(quest_board):
+		quest_board.configure_for_difficulty(difficulty)
 	_apply_difficulty_to_enemies()
 	if not is_node_ready() or is_impossible_trial:
 		return
@@ -182,6 +197,7 @@ func _ready() -> void:
 func generate() -> void:
 	_clear_enemies()
 	_clear_hireling()
+	_clear_castle()
 	prison_boss = null
 	_clear_monster_spawner()
 	has_hired_hireling = false
@@ -233,11 +249,15 @@ func generate() -> void:
 	start_cell = _get_edge_cell(start_room, start_side)
 	exit_cell = rooms[rooms.size() - 1].get_center()
 	if is_impossible_trial:
+		castle_area = Rect2i()
 		vendor_room = Rect2i()
 		vendor_cell = Vector2i.ZERO
 		prison_room = Rect2i()
 		monster_spawn_cells = _reserve_trial_spawn_cells()
 	else:
+		castle_area = _create_castle_area(start_room)
+		_carve_room(castle_area)
+		_spawn_castle()
 		vendor_room = rooms[mini(VENDOR_ROOM_INDEX, rooms.size() - 1)]
 		vendor_cell = _find_vendor_cell(vendor_room)
 		_build_prison(rooms)
@@ -336,6 +356,48 @@ func get_vendor() -> DungeonVendor:
 	return vendor
 
 
+func get_castle_area() -> Rect2i:
+	return castle_area
+
+
+func is_safe_area_cell(cell: Vector2i) -> bool:
+	return castle_area.size != Vector2i.ZERO and castle_area.has_point(cell)
+
+
+func get_weapon_shop() -> DungeonShop:
+	return weapon_shop
+
+
+func get_healing_shop() -> DungeonShop:
+	return healing_shop
+
+
+func get_shop_at(cell: Vector2i) -> DungeonShop:
+	if weapon_shop != null and is_instance_valid(weapon_shop) and weapon_shop.cell == cell:
+		return weapon_shop
+	if healing_shop != null and is_instance_valid(healing_shop) and healing_shop.cell == cell:
+		return healing_shop
+	return null
+
+
+func get_castle_npc_at(cell: Vector2i) -> DungeonCastleNpc:
+	for npc: DungeonCastleNpc in castle_npcs:
+		if is_instance_valid(npc) and npc.cell == cell:
+			return npc
+	return null
+
+
+func get_castle_knight_at(cell: Vector2i) -> DungeonHireling:
+	for knight: DungeonHireling in castle_knights:
+		if is_instance_valid(knight) and knight.current_cell == cell:
+			return knight
+	return null
+
+
+func get_quest_board() -> DungeonQuestBoard:
+	return quest_board
+
+
 func get_vendor_room() -> Rect2i:
 	return vendor_room
 
@@ -388,6 +450,10 @@ func is_hireling_hired() -> bool:
 	return has_hired_hireling
 
 
+func has_hired_companion() -> bool:
+	return _get_hired_companion() != null
+
+
 func get_hireling_notification() -> String:
 	var player: DungeonEntity = get_player()
 	if (
@@ -405,6 +471,23 @@ func get_hireling_notification() -> String:
 	return "PRESS E TO HIRE FIGHTER\n5 ANCIENT COINS"
 
 
+func get_castle_knight_notification() -> String:
+	var player: DungeonEntity = get_player()
+	if player == null or is_game_over:
+		return ""
+	for knight: DungeonHireling in castle_knights:
+		if (
+			is_instance_valid(knight)
+			and not knight.is_hired
+			and _are_adjacent(player.current_cell, knight.current_cell)
+		):
+			return "PRESS E TO HIRE %s\n%d ANCIENT COINS" % [
+				knight.get_display_name().to_upper(),
+				CASTLE_KNIGHT_COST,
+			]
+	return ""
+
+
 func get_vendor_at(cell: Vector2i) -> DungeonVendor:
 	if vendor != null and is_instance_valid(vendor) and vendor.cell == cell:
 		return vendor
@@ -419,6 +502,35 @@ func interact_with_vendor(player_cell: Vector2i) -> bool:
 
 	vendor_interaction_requested.emit(vendor)
 	return true
+
+
+func interact_with_shop(player_cell: Vector2i) -> bool:
+	var shop: DungeonShop = null
+	for candidate: DungeonShop in [weapon_shop, healing_shop]:
+		if candidate != null and is_instance_valid(candidate) and _are_adjacent(player_cell, candidate.cell):
+			shop = candidate
+			break
+	if shop == null:
+		return false
+	shop_interaction_requested.emit(shop)
+	return true
+
+
+func interact_with_quest_board(player_cell: Vector2i) -> bool:
+	if quest_board == null or not is_instance_valid(quest_board):
+		return false
+	if not _are_adjacent(player_cell, quest_board.cell):
+		return false
+	quest_board_interaction_requested.emit(quest_board)
+	return true
+
+
+func interact_with_castle_npc(player_cell: Vector2i) -> bool:
+	for npc: DungeonCastleNpc in castle_npcs:
+		if is_instance_valid(npc) and _are_adjacent(player_cell, npc.cell):
+			npc_interaction_requested.emit(npc)
+			return true
+	return false
 
 
 func interact_with_hireling(player_cell: Vector2i, player_inventory: PlayerInventory) -> bool:
@@ -443,6 +555,33 @@ func interact_with_hireling(player_cell: Vector2i, player_inventory: PlayerInven
 	hireling.set_inventory(player_inventory)
 	hireling.hire()
 	companion_event.emit("You hire the fighter for %d Ancient Coins" % HIRELING_COST)
+	return true
+
+
+func interact_with_castle_knight(
+	player_cell: Vector2i,
+	player_inventory: PlayerInventory,
+) -> bool:
+	var knight: DungeonHireling = null
+	for candidate: DungeonHireling in castle_knights:
+		if is_instance_valid(candidate) and _are_adjacent(player_cell, candidate.current_cell):
+			knight = candidate
+			break
+	if knight == null:
+		return false
+	if knight.is_hired:
+		companion_event.emit("%s is ready to fight" % knight.get_display_name())
+		return true
+	if player_inventory == null or player_inventory.get_item_count("Ancient Coin") < CASTLE_KNIGHT_COST:
+		companion_event.emit("%s needs %d Ancient Coins" % [knight.get_display_name(), CASTLE_KNIGHT_COST])
+		return true
+
+	for _coin_index: int in range(CASTLE_KNIGHT_COST):
+		if not player_inventory.remove_item("Ancient Coin"):
+			return true
+	knight.set_inventory(player_inventory)
+	knight.hire()
+	companion_event.emit("You hire %s for %d Ancient Coins" % [knight.get_display_name(), CASTLE_KNIGHT_COST])
 	return true
 
 
@@ -625,6 +764,7 @@ func get_available_monster_spawn_cells(blocked_cell: Vector2i) -> Array[Vector2i
 				and cell != hireling_cell
 				and not prison_room.has_point(cell)
 				and not vendor_room.has_point(cell)
+				and not is_safe_area_cell(cell)
 				and get_entity_at(cell) == null
 				and not _has_pickup_at(cell)
 			):
@@ -693,6 +833,8 @@ func collect_pickup_at(cell: Vector2i) -> ItemPickup:
 		pickups.remove_at(index)
 		pickup.queue_free()
 		item_collected.emit(item_name, cell)
+		if quest_board != null and is_instance_valid(quest_board):
+			quest_board.notify_item_collected(item_name)
 		return pickup
 	return null
 
@@ -913,6 +1055,7 @@ func _reserve_monster_spawn_cells() -> Array[Vector2i]:
 				and cell != exit_cell
 				and not prison_room.has_point(cell)
 				and not vendor_room.has_point(cell)
+				and not is_safe_area_cell(cell)
 			):
 				available_cells.append(cell)
 
@@ -959,6 +1102,7 @@ func _spawn_items() -> void:
 				and not prison_room.has_point(cell)
 				and not monster_spawn_cells.has(cell)
 				and not vendor_room.has_point(cell)
+				and not is_safe_area_cell(cell)
 			):
 				candidate_cells.append(cell)
 
@@ -1005,6 +1149,7 @@ func _spawn_enemies() -> void:
 			or cell == hireling_cell
 			or prison_room.has_point(cell)
 			or vendor_room.has_point(cell)
+			or is_safe_area_cell(cell)
 		):
 			continue
 		if get_entity_at(cell) != null or _has_pickup_at(cell):
@@ -1131,6 +1276,7 @@ func _find_available_respawn_cell(preferred_cell: Vector2i) -> Vector2i:
 			and get_entity_at(cell) == null
 			and not _has_pickup_at(cell)
 			and get_vendor_at(cell) == null
+			and not is_safe_area_cell(cell)
 		):
 			return cell
 	return preferred_cell
@@ -1143,6 +1289,119 @@ func _clear_hireling() -> void:
 	unregister_entity(hireling)
 	hireling.queue_free()
 	hireling = null
+
+
+func _clear_castle() -> void:
+	for knight: DungeonHireling in castle_knights:
+		if is_instance_valid(knight):
+			unregister_entity(knight)
+			knight.queue_free()
+	castle_knights.clear()
+	if quest_board != null and is_instance_valid(quest_board):
+		quest_board.queue_free()
+	quest_board = null
+	for npc: DungeonCastleNpc in castle_npcs:
+		if is_instance_valid(npc):
+			npc.queue_free()
+	castle_npcs.clear()
+	if weapon_shop != null and is_instance_valid(weapon_shop):
+		weapon_shop.queue_free()
+	if healing_shop != null and is_instance_valid(healing_shop):
+		healing_shop.queue_free()
+	weapon_shop = null
+	healing_shop = null
+	weapon_shop_cell = Vector2i.ZERO
+	healing_shop_cell = Vector2i.ZERO
+
+
+func _create_castle_area(start_room: Rect2i) -> Rect2i:
+	var position: Vector2i = Vector2i.ZERO
+	match start_side:
+		MapSide.LEFT:
+			position = Vector2i(
+				start_room.end.x,
+				clampi(start_room.get_center().y - CASTLE_SIZE.y / 2, 0, map_height - CASTLE_SIZE.y),
+			)
+		MapSide.RIGHT:
+			position = Vector2i(
+				start_room.position.x - CASTLE_SIZE.x,
+				clampi(start_room.get_center().y - CASTLE_SIZE.y / 2, 0, map_height - CASTLE_SIZE.y),
+			)
+		MapSide.TOP:
+			position = Vector2i(
+				clampi(start_room.get_center().x - CASTLE_SIZE.x / 2, 0, map_width - CASTLE_SIZE.x),
+				start_room.end.y,
+			)
+		MapSide.BOTTOM:
+			position = Vector2i(
+				clampi(start_room.get_center().x - CASTLE_SIZE.x / 2, 0, map_width - CASTLE_SIZE.x),
+				start_room.position.y - CASTLE_SIZE.y,
+			)
+	position.x = clampi(position.x, 0, map_width - CASTLE_SIZE.x)
+	position.y = clampi(position.y, 0, map_height - CASTLE_SIZE.y)
+	return Rect2i(position, CASTLE_SIZE)
+
+
+func _spawn_castle() -> void:
+	weapon_shop_cell = castle_area.position + Vector2i(3, 3)
+	healing_shop_cell = castle_area.position + Vector2i(8, 3)
+	weapon_shop = DungeonShop.new()
+	weapon_shop.configure_shop(DungeonShop.ShopType.WEAPONS)
+	weapon_shop.setup(self, weapon_shop_cell)
+	add_child(weapon_shop)
+	healing_shop = DungeonShop.new()
+	healing_shop.configure_shop(DungeonShop.ShopType.HEALING)
+	healing_shop.setup(self, healing_shop_cell)
+	add_child(healing_shop)
+
+	var npc_specs: Array[Dictionary] = [
+		{
+			"cell": castle_area.position + Vector2i(6, 1),
+			"name": "Captain Elara",
+			"dialogue": "Keep your blade sheathed within the castle. The warded stones hold the dungeon at bay.",
+		},
+		{
+			"cell": castle_area.position + Vector2i(6, 7),
+			"name": "Archivist Noll",
+			"dialogue": "The gate is safe ground. Rest, trade, and gather your courage before descending again.",
+		},
+	]
+	for npc_spec: Dictionary in npc_specs:
+		var npc: DungeonCastleNpc = DungeonCastleNpc.new()
+		npc.setup(
+			self,
+			Vector2i(npc_spec["cell"]),
+			str(npc_spec["name"]),
+			str(npc_spec["dialogue"]),
+		)
+		castle_npcs.append(npc)
+		add_child(npc)
+
+	var knight_specs: Array[Dictionary] = [
+		{
+			"cell": castle_area.position + Vector2i(2, 6),
+			"name": "Sir Rowan",
+		},
+		{
+			"cell": castle_area.position + Vector2i(6, 6),
+			"name": "Dame Maris",
+		},
+		{
+			"cell": castle_area.position + Vector2i(9, 6),
+			"name": "Ser Kael",
+		},
+	]
+	for knight_spec: Dictionary in knight_specs:
+		var knight: DungeonHireling = DungeonHireling.new()
+		knight.set_companion_name(str(knight_spec["name"]))
+		knight.setup(self, Vector2i(knight_spec["cell"]))
+		castle_knights.append(knight)
+		add_child(knight)
+
+	quest_board = DungeonQuestBoard.new()
+	quest_board.configure_for_difficulty(difficulty)
+	quest_board.setup(self, castle_area.position + Vector2i(6, 4))
+	add_child(quest_board)
 
 
 func _has_pickup_at(cell: Vector2i) -> bool:
@@ -1173,6 +1432,7 @@ func _spawn_hireling() -> void:
 				and not prison_room.has_point(cell)
 				and not monster_spawn_cells.has(cell)
 				and not vendor_room.has_point(cell)
+				and not is_safe_area_cell(cell)
 			):
 				candidate_cells.append(cell)
 
@@ -1289,11 +1549,12 @@ func _on_entity_defeated(entity: DungeonEntity) -> void:
 			is_hireling_dead = true
 			if has_hired_hireling:
 				companion_event.emit("Your hired fighter has fallen")
-		if has_hired_hireling and not is_hireling_dead and _is_hireling_alive():
+		var replacement_companion: DungeonHireling = _get_hired_companion(entity)
+		if replacement_companion != null:
 			var defeated_player: DungeonEntity = active_player
 			unregister_entity(defeated_player)
-			_set_active_player(hireling)
-			companion_event.emit("You take control of the hired fighter")
+			_set_active_player(replacement_companion)
+			companion_event.emit("You take control of %s" % replacement_companion.get_display_name())
 			_refresh_visibility()
 			return
 		_end_game()
@@ -1307,6 +1568,8 @@ func _on_entity_defeated(entity: DungeonEntity) -> void:
 		return
 
 	if entity is DungeonEnemy:
+		if quest_board != null and is_instance_valid(quest_board):
+			quest_board.notify_enemy_defeated(entity.get_display_name())
 		if entity == prison_boss:
 			prison_boss = null
 		unregister_entity(entity)
@@ -1338,6 +1601,26 @@ func _set_active_player(new_player: DungeonEntity) -> void:
 
 func _is_hireling_alive() -> bool:
 	return hireling != null and is_instance_valid(hireling) and not hireling.health.is_depleted()
+
+
+func _get_hired_companion(excluded_entity: DungeonEntity = null) -> DungeonHireling:
+	if (
+		hireling != null
+		and is_instance_valid(hireling)
+		and hireling != excluded_entity
+		and hireling.is_hired
+		and not hireling.health.is_depleted()
+	):
+		return hireling
+	for knight: DungeonHireling in castle_knights:
+		if (
+			is_instance_valid(knight)
+			and knight != excluded_entity
+			and knight.is_hired
+			and not knight.health.is_depleted()
+		):
+			return knight
+	return null
 
 
 func _end_game() -> void:
@@ -1392,6 +1675,17 @@ func _refresh_visibility() -> void:
 
 	if vendor != null and is_instance_valid(vendor):
 		vendor.set_explored_state(is_cell_visible(vendor.cell), is_cell_known(vendor.cell))
+	for shop: DungeonShop in [weapon_shop, healing_shop]:
+		if shop != null and is_instance_valid(shop):
+			shop.set_explored_state(is_cell_visible(shop.cell), is_cell_known(shop.cell))
+	for npc: DungeonCastleNpc in castle_npcs:
+		if is_instance_valid(npc):
+			npc.set_explored_state(is_cell_visible(npc.cell), is_cell_known(npc.cell))
+	if quest_board != null and is_instance_valid(quest_board):
+		quest_board.set_explored_state(
+			is_cell_visible(quest_board.cell),
+			is_cell_known(quest_board.cell),
+		)
 
 	queue_redraw()
 
@@ -1439,7 +1733,41 @@ func _draw() -> void:
 			Vector2(vendor_room.size * TILE_SIZE),
 		)
 		draw_rect(room_rect.grow(-2.0), Color(0.84, 0.66, 0.37, 0.38), false, 2.0)
+	_draw_castle()
 	_draw_prison_room()
+
+
+func _draw_castle() -> void:
+	if castle_area.size == Vector2i.ZERO:
+		return
+	var castle_is_known: bool = false
+	for y: int in range(castle_area.position.y, castle_area.end.y):
+		for x: int in range(castle_area.position.x, castle_area.end.x):
+			if is_cell_known(Vector2i(x, y)):
+				castle_is_known = true
+				break
+		if castle_is_known:
+			break
+	if not castle_is_known:
+		return
+
+	var castle_rect: Rect2 = Rect2(
+		Vector2(castle_area.position * TILE_SIZE),
+		Vector2(castle_area.size * TILE_SIZE),
+	)
+	draw_rect(castle_rect.grow(-3.0), Color("#b88c4f").darkened(0.35), false, 3.0)
+	draw_rect(castle_rect.grow(-8.0), Color("#d6a85f").darkened(0.45), false, 1.0)
+	for tower_offset: Vector2i in [
+		Vector2i(0, 0),
+		Vector2i(castle_area.size.x - 1, 0),
+		Vector2i(0, castle_area.size.y - 1),
+		Vector2i(castle_area.size.x - 1, castle_area.size.y - 1),
+	]:
+		var tower_cell: Vector2i = castle_area.position + tower_offset
+		if not is_cell_known(tower_cell):
+			continue
+		draw_circle(cell_to_world(tower_cell), 11.0, Color("#594b3b"))
+		draw_arc(cell_to_world(tower_cell), 11.0, 0.0, TAU, 16, Color("#e4c16d"), 2.0)
 
 
 func _draw_prison_room() -> void:

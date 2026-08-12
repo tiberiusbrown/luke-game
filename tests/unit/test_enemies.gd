@@ -417,6 +417,7 @@ func test_hit_effect_particles_render_above_entities_with_radial_gravity() -> vo
 
 
 func _set_up_test_map() -> void:
+	dungeon_level.castle_area = Rect2i()
 	dungeon_level.tiles.clear()
 	for y: int in range(DungeonLevel.GRID_HEIGHT):
 		var row: Array[int] = []

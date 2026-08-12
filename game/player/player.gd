@@ -48,7 +48,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if _is_key(key_event, KEY_E):
-		if dungeon_level.interact_with_vendor(active_player.current_cell):
+		if dungeon_level.interact_with_quest_board(active_player.current_cell):
+			get_viewport().set_input_as_handled()
+		elif dungeon_level.interact_with_shop(active_player.current_cell):
+			get_viewport().set_input_as_handled()
+		elif dungeon_level.interact_with_vendor(active_player.current_cell):
+			get_viewport().set_input_as_handled()
+		elif dungeon_level.interact_with_castle_npc(active_player.current_cell):
+			get_viewport().set_input_as_handled()
+		elif dungeon_level.interact_with_castle_knight(active_player.current_cell, inventory):
 			get_viewport().set_input_as_handled()
 		elif dungeon_level.interact_with_hireling(active_player.current_cell, inventory):
 			get_viewport().set_input_as_handled()
@@ -63,7 +71,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	var direction: Vector2i = _get_direction_for_key(key_event)
 	if direction != Vector2i.ZERO:
-		if dungeon_level.get_vendor_at(active_player.current_cell + direction) != null:
+		var target_cell: Vector2i = active_player.current_cell + direction
+		if (
+			(
+				dungeon_level.get_quest_board() != null
+				and dungeon_level.get_quest_board().cell == target_cell
+			)
+			or dungeon_level.get_vendor_at(target_cell) != null
+			or dungeon_level.get_shop_at(target_cell) != null
+			or dungeon_level.get_castle_npc_at(target_cell) != null
+			or dungeon_level.get_castle_knight_at(target_cell) != null
+		):
 			return
 		active_player.try_move(direction)
 

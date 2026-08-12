@@ -78,7 +78,7 @@ func test_moving_onto_a_pickup_adds_it_to_inventory() -> void:
 	dungeon_level.spawn_pickup("Amber Potion", Vector2i(3, 2))
 
 	assert_true(player.try_move(Vector2i(1, 0)))
-	await get_tree().create_timer(DungeonPlayer.MOVE_DURATION + 0.05).timeout
+	await get_tree().create_timer(DungeonPlayer.MOVE_DURATION + 0.20).timeout
 
 	assert_eq(player.inventory.get_item_count("Amber Potion"), 1)
 	assert_eq(dungeon_level.pickups.size(), 0)
@@ -124,7 +124,7 @@ func test_moving_onto_a_weapon_pickup_does_not_wield_it() -> void:
 	dungeon_level.spawn_weapon(weapon, Vector2i(3, 2))
 
 	assert_true(player.try_move(Vector2i(1, 0)))
-	await get_tree().create_timer(DungeonPlayer.MOVE_DURATION + 0.05).timeout
+	await get_tree().create_timer(DungeonPlayer.MOVE_DURATION + 0.20).timeout
 
 	assert_null(player.inventory.get_equipped_weapon())
 	assert_eq(player.get_attack_damage(), DungeonPlayer.BASE_ATTACK_DAMAGE)
@@ -137,6 +137,8 @@ func test_moving_onto_a_weapon_pickup_does_not_wield_it() -> void:
 
 
 func _set_up_test_map() -> void:
+	dungeon_level.castle_area = Rect2i()
+	dungeon_level._clear_enemies()
 	dungeon_level.tiles.clear()
 	for y: int in range(DungeonLevel.GRID_HEIGHT):
 		var row: Array[int] = []

@@ -31,12 +31,19 @@ func take_turn() -> bool:
 	var target: DungeonEntity = dungeon_level.get_player()
 	if target == null or target.health.is_depleted():
 		return false
+	if (
+		dungeon_level.is_safe_area_cell(target.current_cell)
+		and not dungeon_level.is_safe_area_cell(current_cell)
+	):
+		return false
 	if _is_in_attack_range(target.current_cell):
 		return _try_attack(target)
 
 	var directions: Array[Vector2i] = _get_chase_directions(target.current_cell)
 	for direction: Vector2i in directions:
 		var target_cell: Vector2i = current_cell + direction
+		if dungeon_level.is_safe_area_cell(target_cell):
+			continue
 		var occupying_entity: DungeonEntity = dungeon_level.get_entity_at(target_cell)
 		if not dungeon_level.is_walkable(target_cell) and occupying_entity == null:
 			continue

@@ -9,6 +9,7 @@ const FOLLOW_DISTANCE: int = 1
 
 var is_hired: bool = false
 var is_controlled: bool = false
+var companion_name: String = "Hired Fighter"
 var hit_chance: float = HIT_CHANCE
 var inventory: PlayerInventory = PlayerInventory.new()
 
@@ -31,6 +32,13 @@ func _ready() -> void:
 
 func hire() -> void:
 	is_hired = true
+	queue_redraw()
+
+
+func set_companion_name(new_name: String) -> void:
+	companion_name = new_name.strip_edges()
+	if companion_name.is_empty():
+		companion_name = "Hired Fighter"
 	queue_redraw()
 
 
@@ -86,7 +94,7 @@ func get_hit_chance() -> float:
 
 
 func get_display_name() -> String:
-	return "Hired Fighter"
+	return companion_name
 
 
 func is_player_entity() -> bool:

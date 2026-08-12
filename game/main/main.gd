@@ -17,6 +17,7 @@ const MIN_MAP_SCALE: float = 0.55
 @onready var inventory_panel: InventoryPanel = $Hud/InventoryPanel
 @onready var wield_panel: WieldPanel = $Hud/WieldPanel
 @onready var vendor_panel: VendorPanel = $Hud/VendorPanel
+@onready var quest_panel: QuestPanel = $Hud/QuestPanel
 @onready var status_log: StatusLog = $Hud/StatusLog
 @onready var game_over_panel: Panel = $Hud/GameOverPanel
 @onready var game_over_message_label: Label = $Hud/GameOverPanel/MessageLabel
@@ -47,6 +48,11 @@ func _ready() -> void:
 	player.inventory.inventory_changed.connect(_on_inventory_changed)
 	dungeon_level.item_collected.connect(_on_item_collected)
 	dungeon_level.vendor_interaction_requested.connect(_on_vendor_interaction_requested)
+	dungeon_level.quest_board_interaction_requested.connect(_on_quest_board_interaction_requested)
+	if dungeon_level.get_quest_board() != null:
+		dungeon_level.get_quest_board().quest_message.connect(_on_quest_message)
+	dungeon_level.shop_interaction_requested.connect(_on_shop_interaction_requested)
+	dungeon_level.npc_interaction_requested.connect(_on_npc_interaction_requested)
 	dungeon_level.companion_event.connect(_on_companion_event)
 	dungeon_level.prison_event.connect(_on_prison_event)
 	dungeon_level.player_control_changed.connect(_on_player_control_changed)
@@ -128,6 +134,7 @@ func _layout_ui() -> void:
 	_center_panel(inventory_panel, map_area)
 	_center_panel(wield_panel, map_area)
 	_center_panel(vendor_panel, map_area)
+	_center_panel(quest_panel, map_area)
 	_center_panel(game_over_panel, map_area)
 	_center_panel(home_panel, map_area)
 	_position_hireling_prompt(map_area)
@@ -186,6 +193,8 @@ func _position_hireling_prompt(area: Rect2) -> void:
 
 func _update_hireling_notification() -> void:
 	var notification_text: String = active_dungeon_level.get_hireling_notification()
+	if notification_text.is_empty():
+		notification_text = active_dungeon_level.get_castle_knight_notification()
 	hireling_prompt_panel.visible = (
 		notification_text != ""
 		and not game_over_panel.visible
@@ -236,6 +245,12 @@ func _handle_key_event(event: InputEvent) -> void:
 	if vendor_panel.visible:
 		if key_event.pressed and not key_event.echo:
 			vendor_panel.handle_key(key_event)
+		get_viewport().set_input_as_handled()
+		return
+
+	if quest_panel.visible:
+		if key_event.pressed and not key_event.echo:
+			quest_panel.handle_key(key_event)
 		get_viewport().set_input_as_handled()
 		return
 
@@ -317,11 +332,35 @@ func _on_combat_event(message: String) -> void:
 func _on_vendor_interaction_requested(vendor: DungeonVendor) -> void:
 	inventory_panel.visible = false
 	wield_panel.visible = false
+	quest_panel.visible = false
 	vendor_panel.show_vendor(vendor, player.inventory)
 
 
+func _on_quest_board_interaction_requested(board: DungeonQuestBoard) -> void:
+	inventory_panel.visible = false
+	wield_panel.visible = false
+	vendor_panel.visible = false
+	quest_panel.show_board(board, player.inventory)
+
+
+func _on_quest_message(message: String) -> void:
+	status_log.add_message(message)
+
+
+func _on_shop_interaction_requested(shop: DungeonShop) -> void:
+	inventory_panel.visible = false
+	wield_panel.visible = false
+	quest_panel.visible = false
+	vendor_panel.show_vendor(shop, player.inventory)
+
+
 func _on_vendor_trade_completed(offered_name: String, received_name: String) -> void:
-	status_log.add_message("Rook trades %s for %s" % [offered_name, received_name])
+	var trader_name: String = vendor_panel.get_active_vendor_name()
+	if trader_name == DungeonVendor.VENDOR_NAME:
+		trader_name = "Rook"
+	status_log.add_message(
+		"%s trades %s for %s" % [trader_name, offered_name, received_name]
+	)
 
 
 func _on_vendor_panel_close_requested() -> void:
@@ -330,6 +369,10 @@ func _on_vendor_panel_close_requested() -> void:
 
 func _on_companion_event(message: String) -> void:
 	status_log.add_message(message)
+
+
+func _on_npc_interaction_requested(npc: DungeonCastleNpc) -> void:
+	status_log.add_message("%s: %s" % [npc.get_display_name(), npc.get_dialogue()])
 
 
 func _on_prison_event(message: String) -> void:
@@ -347,11 +390,12 @@ func _on_player_control_changed(
 
 func _on_game_over() -> void:
 	vendor_panel.visible = false
+	quest_panel.visible = false
 	inventory_panel.visible = false
 	wield_panel.visible = false
 	game_over_message_label.text = (
 		"You and your fighter have fallen."
-		if dungeon_level.is_hireling_hired()
+		if dungeon_level.has_hired_companion()
 		else "You have fallen."
 	)
 	game_over_panel.visible = true
@@ -408,6 +452,7 @@ func _show_home_screen() -> void:
 	inventory_panel.visible = false
 	wield_panel.visible = false
 	vendor_panel.visible = false
+	quest_panel.visible = false
 	home_panel.visible = true
 	get_tree().paused = true
 	return_to_game_button.grab_focus()
