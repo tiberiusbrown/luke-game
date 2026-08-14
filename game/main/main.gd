@@ -36,6 +36,7 @@ const MIN_MAP_SCALE: float = 0.55
 var active_dungeon_level: DungeonLevel
 var trial_level: DungeonLevel = null
 var _trial_player: DungeonEntity = null
+var _trial_companions: Array[DungeonHireling] = []
 var _trial_return_cell: Vector2i = Vector2i.ZERO
 var selected_difficulty: DungeonLevel.Difficulty = DungeonLevel.Difficulty.NORMAL
 var _difficulty_applied: bool = false
@@ -479,6 +480,7 @@ func _start_impossible_trial() -> void:
 	if current_player == null:
 		return
 	_trial_player = current_player
+	_trial_companions = dungeon_level.get_hired_companions()
 	_trial_return_cell = current_player.current_cell
 	dungeon_level.suspend_player(current_player)
 	dungeon_level.process_mode = Node.PROCESS_MODE_DISABLED
@@ -492,6 +494,7 @@ func _start_impossible_trial() -> void:
 	trial_level.configure_impossible_trial()
 	trial_level.trial_completed.connect(_on_trial_completed)
 	trial_level.game_over.connect(_on_trial_game_over)
+	trial_level.player_control_changed.connect(_on_player_control_changed)
 	map_viewport.add_child(trial_level)
 	trial_level.add_child(current_player)
 	trial_level.attach_player(current_player, trial_level.get_start_cell())
@@ -501,6 +504,7 @@ func _start_impossible_trial() -> void:
 		trial_level.add_child(player)
 		player.setup(trial_level, trial_level.get_start_cell())
 		player.visible = false
+	_move_trial_companions(trial_level, current_player)
 	trial_level.visible = true
 	active_dungeon_level = trial_level
 	impossible_trial_button.disabled = true
@@ -515,6 +519,17 @@ func _on_trial_completed() -> void:
 	var finished_trial: DungeonLevel = trial_level
 	finished_trial.suspend_player(_trial_player)
 	finished_trial.remove_child(_trial_player)
+	var returning_companions: Array[DungeonHireling] = []
+	for companion: DungeonHireling in _trial_companions:
+		if (
+			is_instance_valid(companion)
+			and companion != _trial_player
+			and not companion.health.is_depleted()
+		):
+			returning_companions.append(companion)
+			if companion.get_parent() == finished_trial:
+				finished_trial.unregister_entity(companion)
+				finished_trial.remove_child(companion)
 	if player.get_parent() == finished_trial:
 		finished_trial.remove_child(player)
 	finished_trial.queue_free()
@@ -529,6 +544,16 @@ func _on_trial_completed() -> void:
 		dungeon_level.add_child(player)
 		player.setup(dungeon_level, _trial_return_cell)
 		player.visible = false
+	for companion: DungeonHireling in returning_companions:
+		var return_cell: Vector2i = _find_available_companion_cell(
+			dungeon_level,
+			_trial_return_cell,
+		)
+		dungeon_level.add_child(companion)
+		companion.setup(dungeon_level, return_cell)
+		dungeon_level.register_entity(companion)
+		companion.visible = true
+	_trial_companions.clear()
 	_trial_player = null
 	dungeon_level.respawn_all_mobs()
 	active_dungeon_level = dungeon_level
@@ -546,6 +571,55 @@ func _on_trial_game_over() -> void:
 func _get_active_player() -> DungeonEntity:
 	var active_player: DungeonEntity = active_dungeon_level.get_player()
 	return active_player if active_player != null else player
+
+
+func _move_trial_companions(trial: DungeonLevel, active_character: DungeonEntity) -> void:
+	for companion: DungeonHireling in _trial_companions:
+		if not is_instance_valid(companion) or companion == active_character:
+			continue
+		if companion.get_parent() == dungeon_level:
+			dungeon_level.unregister_entity(companion)
+			dungeon_level.remove_child(companion)
+		var trial_cell: Vector2i = _find_available_companion_cell(
+			trial,
+			trial.get_start_cell(),
+		)
+		trial.add_child(companion)
+		companion.setup(trial, trial_cell)
+		trial.register_entity(companion)
+		companion.visible = true
+
+
+func _find_available_companion_cell(
+	level: DungeonLevel,
+	preferred_cell: Vector2i,
+) -> Vector2i:
+	var candidate_cells: Array[Vector2i] = [
+		preferred_cell + Vector2i(-1, 0),
+		preferred_cell + Vector2i(1, 0),
+		preferred_cell + Vector2i(0, -1),
+		preferred_cell + Vector2i(0, 1),
+	]
+	for y: int in range(level.map_height):
+		for x: int in range(level.map_width):
+			candidate_cells.append(Vector2i(x, y))
+	for cell: Vector2i in candidate_cells:
+		if _is_available_companion_cell(level, cell):
+			return cell
+	return preferred_cell
+
+
+func _is_available_companion_cell(level: DungeonLevel, cell: Vector2i) -> bool:
+	if not level.is_walkable(cell) or level.get_entity_at(cell) != null:
+		return false
+	if level.get_vendor_at(cell) != null or level.get_shop_at(cell) != null:
+		return false
+	if level.get_castle_npc_at(cell) != null or level.is_safe_area_cell(cell):
+		return false
+	for pickup: ItemPickup in level.pickups:
+		if is_instance_valid(pickup) and pickup.cell == cell:
+			return false
+	return true
 
 
 func _is_key(key_event: InputEventKey, key_code: int) -> bool:

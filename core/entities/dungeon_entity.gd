@@ -205,7 +205,17 @@ func _try_swap_with_entity(target: DungeonEntity) -> bool:
 
 
 func _resolve_attack(target: DungeonEntity) -> void:
-	if target == null or not is_instance_valid(target) or target.health.is_depleted():
+	if (
+		dungeon_level == null
+		or health == null
+		or health.is_depleted()
+		or target == null
+		or not is_instance_valid(target)
+		or target.dungeon_level != dungeon_level
+		or target.health == null
+		or target.health.is_depleted()
+		or not _is_in_attack_range(target.current_cell)
+	):
 		return
 
 	var hit_chance: float = clampf(get_hit_chance(), 0.0, 1.0)

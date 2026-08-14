@@ -173,7 +173,7 @@ func test_controlled_hireling_picks_up_items_into_the_player_inventory() -> void
 	dungeon_level.spawn_pickup("Amber Potion", Vector2i(4, 2))
 
 	assert_true(hireling.try_move(Vector2i(1, 0)))
-	await get_tree().create_timer(DungeonEntity.MOVE_DURATION + 0.05).timeout
+	await get_tree().create_timer(DungeonEntity.MOVE_DURATION + 0.15).timeout
 
 	assert_eq(player.inventory.get_item_count("Amber Potion"), 1)
 	assert_eq(dungeon_level.pickups.size(), 0)

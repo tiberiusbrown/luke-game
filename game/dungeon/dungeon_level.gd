@@ -458,6 +458,25 @@ func has_hired_companion() -> bool:
 	return _get_hired_companion() != null
 
 
+func get_hired_companions() -> Array[DungeonHireling]:
+	var companions: Array[DungeonHireling] = []
+	if (
+		hireling != null
+		and is_instance_valid(hireling)
+		and hireling.is_hired
+		and not hireling.health.is_depleted()
+	):
+		companions.append(hireling)
+	for knight: DungeonHireling in castle_knights:
+		if (
+			is_instance_valid(knight)
+			and knight.is_hired
+			and not knight.health.is_depleted()
+		):
+			companions.append(knight)
+	return companions
+
+
 func get_hireling_notification() -> String:
 	var player: DungeonEntity = get_player()
 	if (
@@ -1702,6 +1721,15 @@ func _get_hired_companion(excluded_entity: DungeonEntity = null) -> DungeonHirel
 			and not knight.health.is_depleted()
 		):
 			return knight
+	for entity: DungeonEntity in entities:
+		var companion: DungeonHireling = entity as DungeonHireling
+		if (
+			companion != null
+			and companion != excluded_entity
+			and companion.is_hired
+			and not companion.health.is_depleted()
+		):
+			return companion
 	return null
 
 

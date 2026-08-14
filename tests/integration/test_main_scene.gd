@@ -901,6 +901,119 @@ func test_defeating_impossible_trial_returns_with_twenty_hearts_and_respawned_mo
 	assert_null(main_dungeon.get_monster_spawner())
 
 
+func test_impossible_trial_keeps_all_hired_fighters_with_the_party() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var hired_fighters: Array[DungeonHireling] = []
+	var hireling: DungeonHireling = dungeon_level.get_hireling()
+	player.current_cell = _get_adjacent_empty_cell(dungeon_level, hireling.current_cell)
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+	for _coin_index: int in range(DungeonLevel.HIRELING_COST):
+		player.inventory.add_item("Ancient Coin")
+	assert_true(dungeon_level.interact_with_hireling(player.current_cell, player.inventory))
+	hired_fighters.append(hireling)
+
+	for knight: DungeonHireling in dungeon_level.castle_knights:
+		player.current_cell = _get_adjacent_walkable_cell(dungeon_level, knight.current_cell)
+		player.position = dungeon_level.cell_to_world(player.current_cell)
+		for _coin_index: int in range(DungeonLevel.CASTLE_KNIGHT_COST):
+			player.inventory.add_item("Ancient Coin")
+		assert_true(dungeon_level.interact_with_castle_knight(player.current_cell, player.inventory))
+		hired_fighters.append(knight)
+
+	for _skull_index: int in range(5):
+		player.inventory.add_item(DungeonLevel.SKULL_ITEM_NAME)
+	main_scene._start_impossible_trial()
+	await get_tree().process_frame
+
+	var trial: DungeonLevel = main_scene.trial_level
+	assert_not_null(trial)
+	if trial == null:
+		return
+	for fighter: DungeonHireling in hired_fighters:
+		assert_eq(fighter.get_parent(), trial)
+		assert_true(trial.entities.has(fighter))
+
+	for enemy: DungeonEnemy in trial.enemies.duplicate():
+		enemy.take_damage(enemy.health.current_hearts)
+	await get_tree().process_frame
+
+	assert_null(main_scene.trial_level)
+	for fighter: DungeonHireling in hired_fighters:
+		assert_eq(fighter.get_parent(), dungeon_level)
+		assert_true(dungeon_level.entities.has(fighter))
+
+
+func test_impossible_trial_transfers_control_after_player_falls_with_three_hired_fighters() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var health_bar: HeartHealthBar = main_scene.get_node("%HealthBar") as HeartHealthBar
+	var hired_fighters: Array[DungeonHireling] = []
+	for knight: DungeonHireling in dungeon_level.castle_knights:
+		player.current_cell = _get_adjacent_walkable_cell(dungeon_level, knight.current_cell)
+		player.position = dungeon_level.cell_to_world(player.current_cell)
+		for _coin_index: int in range(DungeonLevel.CASTLE_KNIGHT_COST):
+			player.inventory.add_item("Ancient Coin")
+		assert_true(dungeon_level.interact_with_castle_knight(player.current_cell, player.inventory))
+		hired_fighters.append(knight)
+
+	for _skull_index: int in range(5):
+		player.inventory.add_item(DungeonLevel.SKULL_ITEM_NAME)
+	main_scene._start_impossible_trial()
+	await get_tree().process_frame
+
+	var trial: DungeonLevel = main_scene.trial_level
+	assert_not_null(trial)
+	if trial == null:
+		return
+	player.take_damage(DungeonPlayer.MAX_HEARTS)
+
+	assert_false(trial.is_game_over)
+	assert_true(hired_fighters.has(trial.get_player()))
+	assert_ne(trial.get_player(), player)
+	assert_eq(health_bar._health, trial.get_player().health)
+	assert_eq(trial.get_player().health.current_hearts, DungeonHireling.MAX_HEARTS)
+
+
+func test_impossible_trial_attack_does_not_land_after_player_leaves_range() -> void:
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	for _skull_index: int in range(5):
+		player.inventory.add_item(DungeonLevel.SKULL_ITEM_NAME)
+	main_scene._start_impossible_trial()
+	await get_tree().process_frame
+
+	var trial: DungeonLevel = main_scene.trial_level
+	assert_not_null(trial)
+	if trial == null:
+		return
+	trial._clear_enemies()
+	var attack_cell: Vector2i = Vector2i(-1, -1)
+	for y: int in range(trial.map_height):
+		for x: int in range(trial.map_width):
+			var candidate_cell: Vector2i = Vector2i(x, y)
+			if (
+				trial.is_walkable(candidate_cell)
+				and abs(candidate_cell.x - player.current_cell.x)
+				+ abs(candidate_cell.y - player.current_cell.y) == 2
+			):
+				attack_cell = candidate_cell
+				break
+		if attack_cell != Vector2i(-1, -1):
+			break
+	assert_ne(attack_cell, Vector2i(-1, -1))
+
+	var cyclopes: CyclopesEnemy = CyclopesEnemy.new()
+	cyclopes.hit_chance = 1.0
+	assert_not_null(trial.spawn_enemy(cyclopes, attack_cell))
+	var starting_hearts: int = player.health.current_hearts
+	assert_true(cyclopes.take_turn())
+	player.current_cell = trial.get_exit_cell()
+	player.position = trial.cell_to_world(player.current_cell)
+	await get_tree().create_timer(0.3).timeout
+
+	assert_eq(player.health.current_hearts, starting_hearts)
+
+
 func test_impossible_trial_uses_the_hired_fighter_after_the_player_falls() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
