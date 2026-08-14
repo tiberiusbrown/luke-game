@@ -35,6 +35,7 @@ const HEALING_ITEM_NAMES: Array[String] = [
 	"Heartroot Poultice",
 ]
 const ANCIENT_COIN_COUNT: int = 24
+const BOOBY_TRAP_COUNT: int = 12
 const HIRELING_COST: int = 5
 const MONSTER_COUNT: int = 16
 const SKULL_ITEM_NAME: String = "Skull"
@@ -88,6 +89,7 @@ var prison_boss: CyclopesEnemy = null
 var monster_spawner: MonsterSpawner = null
 var is_prison_unlocked: bool = false
 var pickups: Array[ItemPickup] = []
+var booby_traps: Array[BoobyTrap] = []
 var entities: Array[DungeonEntity] = []
 var enemies: Array[DungeonEnemy] = []
 var turn_scheduler: TurnScheduler = null
@@ -196,6 +198,7 @@ func _ready() -> void:
 
 func generate() -> void:
 	_clear_enemies()
+	clear_booby_traps()
 	_clear_hireling()
 	_clear_castle()
 	prison_boss = null
@@ -271,6 +274,7 @@ func generate() -> void:
 		_spawn_vendor()
 		_spawn_hireling()
 		_spawn_items()
+		_spawn_booby_traps()
 	queue_redraw()
 	dungeon_generated.emit(start_cell, exit_cell)
 	if is_node_ready():
@@ -735,7 +739,12 @@ func spawn_enemy(
 ) -> DungeonEnemy:
 	if enemy == null or not is_walkable(cell):
 		return null
-	if get_entity_at(cell) != null or _has_pickup_at(cell) or get_vendor_at(cell) != null:
+	if (
+		get_entity_at(cell) != null
+		or _has_pickup_at(cell)
+		or get_booby_trap_at(cell) != null
+		or get_vendor_at(cell) != null
+	):
 		return null
 
 	enemy.setup(self, cell)
@@ -851,6 +860,68 @@ func clear_pickups() -> void:
 		if is_instance_valid(pickup):
 			pickup.queue_free()
 	pickups.clear()
+
+
+func spawn_booby_trap(cell: Vector2i) -> BoobyTrap:
+	if (
+		not is_walkable(cell)
+		or get_entity_at(cell) != null
+		or _has_pickup_at(cell)
+		or get_booby_trap_at(cell) != null
+	):
+		return null
+
+	var trap: BoobyTrap = BoobyTrap.new()
+	trap.setup(cell)
+	add_child(trap)
+	booby_traps.append(trap)
+	_refresh_visibility()
+	return trap
+
+
+func get_booby_trap_at(cell: Vector2i) -> BoobyTrap:
+	for index: int in range(booby_traps.size() - 1, -1, -1):
+		var trap: BoobyTrap = booby_traps[index]
+		if not is_instance_valid(trap):
+			booby_traps.remove_at(index)
+			continue
+		if trap.cell == cell:
+			return trap
+	return null
+
+
+func clear_booby_traps() -> void:
+	for trap: BoobyTrap in booby_traps:
+		if is_instance_valid(trap):
+			trap.queue_free()
+	booby_traps.clear()
+
+
+func _spawn_booby_traps() -> void:
+	clear_booby_traps()
+	if is_impossible_trial:
+		return
+
+	var candidate_cells: Array[Vector2i] = []
+	for y: int in range(map_height):
+		for x: int in range(map_width):
+			var cell: Vector2i = Vector2i(x, y)
+			if (
+				is_walkable(cell)
+				and cell != start_cell
+				and cell != exit_cell
+				and cell != hireling_cell
+				and not prison_room.has_point(cell)
+				and not monster_spawn_cells.has(cell)
+				and not vendor_room.has_point(cell)
+				and not is_safe_area_cell(cell)
+				and not _has_pickup_at(cell)
+			):
+				candidate_cells.append(cell)
+
+	var trap_count: int = mini(BOOBY_TRAP_COUNT, candidate_cells.size())
+	for _trap_index: int in range(trap_count):
+		spawn_booby_trap(_take_random_candidate(candidate_cells))
 
 
 func _carve_room(room: Rect2i) -> void:
@@ -1481,7 +1552,18 @@ func _on_entity_action_finished(entity: DungeonEntity) -> void:
 		_run_next_non_player_action()
 
 
-func _on_entity_movement_finished(_entity: DungeonEntity, _cell: Vector2i) -> void:
+func _on_entity_movement_finished(entity: DungeonEntity, cell: Vector2i) -> void:
+	var trap: BoobyTrap = get_booby_trap_at(cell)
+	if trap != null:
+		var damage_dealt: int = trap.activate(entity)
+		if damage_dealt > 0:
+			combat_event.emit(
+				"%s triggers a booby trap and loses %d heart%s" % [
+					entity.get_display_name(),
+					damage_dealt,
+					"" if damage_dealt == 1 else "s",
+				]
+			)
 	_refresh_visibility()
 
 
@@ -1672,6 +1754,11 @@ func _refresh_visibility() -> void:
 		if not is_instance_valid(pickup):
 			continue
 		pickup.set_explored_state(is_cell_visible(pickup.cell), is_cell_known(pickup.cell))
+
+	for trap: BoobyTrap in booby_traps:
+		if not is_instance_valid(trap):
+			continue
+		trap.set_explored_state(is_cell_visible(trap.cell), is_cell_known(trap.cell))
 
 	if vendor != null and is_instance_valid(vendor):
 		vendor.set_explored_state(is_cell_visible(vendor.cell), is_cell_known(vendor.cell))
