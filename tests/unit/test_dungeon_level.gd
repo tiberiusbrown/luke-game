@@ -50,3 +50,15 @@ func test_generated_dungeon_starts_on_an_edge_and_reserves_the_opposite_side() -
 	for cell: Vector2i in dungeon_level.monster_spawn_cells:
 		assert_true(dungeon_level.is_walkable(cell))
 		assert_true(dungeon_level.is_cell_on_side(cell, dungeon_level.get_monster_spawn_side()))
+
+
+func test_non_player_action_queue_skips_freed_entities() -> void:
+	var stale_enemy: DungeonEnemy = DungeonEnemy.new()
+	dungeon_level.add_child(stale_enemy)
+	dungeon_level._non_player_action_queue.append(stale_enemy)
+	stale_enemy.queue_free()
+	await get_tree().process_frame
+
+	dungeon_level._run_next_non_player_action()
+
+	assert_null(dungeon_level._active_non_player)

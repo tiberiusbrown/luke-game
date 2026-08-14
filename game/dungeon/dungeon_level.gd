@@ -1684,13 +1684,22 @@ func _queue_boss_attack_if_in_range() -> void:
 
 
 func _run_next_non_player_action() -> void:
-	if _active_non_player != null:
+	if is_instance_valid(_active_non_player):
 		return
+	_active_non_player = null
 
 	while not _non_player_action_queue.is_empty():
-		var entity: DungeonEntity = _non_player_action_queue.pop_front()
+		# A queued entity can be freed by an earlier action before its turn runs.
+		# Read the queue entry as a Variant so the validity check happens before
+		# assigning a potentially stale object reference to a typed variable.
+		var queued_entity: Variant = _non_player_action_queue.pop_front()
+		if not is_instance_valid(queued_entity):
+			continue
+		var entity: DungeonEntity = queued_entity as DungeonEntity
+		if entity == null:
+			continue
 		if (
-			not is_instance_valid(entity)
+			entity.health == null
 			or entity.health.is_depleted()
 			or not entities.has(entity)
 			or entity == get_player()
