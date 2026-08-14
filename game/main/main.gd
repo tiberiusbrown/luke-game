@@ -56,6 +56,7 @@ func _ready() -> void:
 	dungeon_level.npc_interaction_requested.connect(_on_npc_interaction_requested)
 	dungeon_level.companion_event.connect(_on_companion_event)
 	dungeon_level.prison_event.connect(_on_prison_event)
+	dungeon_level.castle_boundary_blocked.connect(_on_castle_boundary_blocked)
 	dungeon_level.player_control_changed.connect(_on_player_control_changed)
 	dungeon_level.game_over.connect(_on_game_over)
 	player.inventory.weapon_wielded.connect(_on_weapon_wielded)
@@ -380,6 +381,10 @@ func _on_prison_event(message: String) -> void:
 	status_log.add_message(message)
 
 
+func _on_castle_boundary_blocked() -> void:
+	status_log.add_message("The castle gates are sealed. You cannot leave.")
+
+
 func _on_player_control_changed(
 	_previous_player: DungeonEntity,
 	current_player: DungeonEntity,
@@ -412,6 +417,7 @@ func _on_begin_button_pressed() -> void:
 		status_log.add_message("Find the key, unlock the Boss Prison, and defeat the Cyclopes")
 	else:
 		status_log.add_message("Explore the dungeon and survive")
+	status_log.add_message("Find the stairs leading to the high castle.")
 
 
 func _setup_difficulty_selector() -> void:

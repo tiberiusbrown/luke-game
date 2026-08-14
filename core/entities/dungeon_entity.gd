@@ -53,14 +53,17 @@ func try_move(direction: Vector2i) -> bool:
 		return false
 
 	var target_cell: Vector2i = current_cell + direction
+	var target_is_walkable: bool = dungeon_level.is_walkable(target_cell)
+	if is_player_entity():
+		target_is_walkable = dungeon_level.can_player_move_to(current_cell, target_cell)
+	if not target_is_walkable:
+		return false
+
 	var target_entity: DungeonEntity = dungeon_level.get_entity_at(target_cell)
 	if target_entity != null and target_entity != self:
 		if is_player_entity() and target_entity.can_be_passed_through_by_player():
 			return _try_swap_with_entity(target_entity)
 		return _try_attack(target_entity)
-	if not dungeon_level.is_walkable(target_cell):
-		return false
-
 	if not _begin_action():
 		return false
 	return _start_movement(target_cell)

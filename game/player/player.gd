@@ -48,7 +48,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if _is_key(key_event, KEY_E):
-		if dungeon_level.interact_with_quest_board(active_player.current_cell):
+		if dungeon_level.interact_with_castle_entry(active_player.current_cell):
+			get_viewport().set_input_as_handled()
+		elif dungeon_level.interact_with_quest_board(active_player.current_cell):
 			get_viewport().set_input_as_handled()
 		elif dungeon_level.interact_with_shop(active_player.current_cell):
 			get_viewport().set_input_as_handled()

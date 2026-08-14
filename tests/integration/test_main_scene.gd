@@ -337,6 +337,40 @@ func test_main_scene_contains_a_castle_with_two_specialized_shops_and_npcs() -> 
 		assert_false(dungeon_level.is_safe_area_cell(cell))
 
 
+func test_main_scene_contains_a_huge_locked_above_ground_castle() -> void:
+	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
+	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer
+	var castle_bounds: Rect2i = dungeon_level.get_above_ground_castle_area()
+	var stairs_cell: Vector2i = dungeon_level.get_castle_entry_stairs_cell()
+
+	assert_gt(castle_bounds.size.x * castle_bounds.size.y, 2500)
+	assert_false(castle_bounds.has_point(player.current_cell))
+	assert_true(dungeon_level.is_walkable(stairs_cell))
+	assert_false(dungeon_level.has_entered_castle())
+
+	player.current_cell = stairs_cell
+	player.position = dungeon_level.cell_to_world(stairs_cell)
+	assert_true(dungeon_level.interact_with_castle_entry(stairs_cell))
+	assert_true(dungeon_level.has_entered_castle())
+	assert_eq(player.current_cell, dungeon_level.castle_entry_cell)
+
+	var from_cell: Vector2i = Vector2i(castle_bounds.end.x - 1, castle_bounds.get_center().y)
+	var target_cell: Vector2i = from_cell + Vector2i(1, 0)
+	dungeon_level.tiles[from_cell.y][from_cell.x] = DungeonLevel.FLOOR
+	dungeon_level.tiles[target_cell.y][target_cell.x] = DungeonLevel.FLOOR
+	player.current_cell = from_cell
+	player.position = dungeon_level.cell_to_world(from_cell)
+
+	assert_false(player.try_move(Vector2i(1, 0)))
+	assert_eq(player.current_cell, from_cell)
+
+	player.current_cell = dungeon_level.castle_entry_cell
+	player.position = dungeon_level.cell_to_world(player.current_cell)
+	assert_true(dungeon_level.interact_with_castle_entry(player.current_cell))
+	assert_false(dungeon_level.has_entered_castle())
+	assert_eq(player.current_cell, stairs_cell)
+
+
 func test_castle_weapon_shop_opens_and_sells_a_weapon() -> void:
 	var dungeon_level: DungeonLevel = main_scene.get_node("%DungeonLevel") as DungeonLevel
 	var player: DungeonPlayer = main_scene.get_node("%Player") as DungeonPlayer

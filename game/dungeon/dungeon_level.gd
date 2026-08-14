@@ -13,6 +13,7 @@ signal npc_interaction_requested(npc: DungeonCastleNpc)
 signal quest_board_interaction_requested(board: DungeonQuestBoard)
 signal companion_event(message: String)
 signal prison_event(message: String)
+signal castle_boundary_blocked
 signal player_control_changed(previous_player: DungeonEntity, current_player: DungeonEntity)
 signal game_over
 signal trial_completed
@@ -47,7 +48,7 @@ const BOSS_PRISON_KEY: String = "Boss Prison Key"
 const BOSS_PRISON_KEY_ITEM_NAME: String = BOSS_PRISON_KEY
 const PRISON_ROOM_SIZE: Vector2i = Vector2i(8, 7)
 const PRISON_ROOM_MARGIN: int = 2
-const CASTLE_SIZE: Vector2i = Vector2i(12, 9)
+const CASTLE_SIZE: Vector2i = Vector2i(64, 44)
 const CASTLE_KNIGHT_COST: int = 5
 const WEAPON_DEFINITIONS: Array[Dictionary] = [
 	{"name": "Rusty Sword", "damage": 2},
@@ -70,6 +71,10 @@ var vendor_room: Rect2i = Rect2i()
 var vendor_cell: Vector2i = Vector2i.ZERO
 var vendor: DungeonVendor = null
 var castle_area: Rect2i = Rect2i()
+var above_ground_castle_area: Rect2i = Rect2i()
+var castle_entry_stairs_cell: Vector2i = Vector2i.ZERO
+var castle_entry_cell: Vector2i = Vector2i.ZERO
+var is_castle_entered: bool = false
 var castle_npcs: Array[DungeonCastleNpc] = []
 var castle_knights: Array[DungeonHireling] = []
 var quest_board: DungeonQuestBoard = null
@@ -253,13 +258,24 @@ func generate() -> void:
 	exit_cell = rooms[rooms.size() - 1].get_center()
 	if is_impossible_trial:
 		castle_area = Rect2i()
+		above_ground_castle_area = Rect2i()
+		castle_entry_stairs_cell = Vector2i.ZERO
+		castle_entry_cell = Vector2i.ZERO
+		is_castle_entered = false
 		vendor_room = Rect2i()
 		vendor_cell = Vector2i.ZERO
 		prison_room = Rect2i()
 		monster_spawn_cells = _reserve_trial_spawn_cells()
 	else:
 		castle_area = _create_castle_area(start_room)
-		_carve_room(castle_area)
+		above_ground_castle_area = castle_area
+		_carve_castle_area(castle_area)
+		castle_entry_stairs_cell = castle_area.position + Vector2i(castle_area.size.x / 2, -1)
+		castle_entry_cell = castle_area.position + Vector2i(castle_area.size.x / 2, 1)
+		tiles[castle_entry_stairs_cell.y][castle_entry_stairs_cell.x] = FLOOR
+		_carve_corridor(start_room.get_center(), castle_entry_stairs_cell)
+		_seal_castle_walls(castle_area)
+		is_castle_entered = false
 		_spawn_castle()
 		vendor_room = rooms[mini(VENDOR_ROOM_INDEX, rooms.size() - 1)]
 		vendor_cell = _find_vendor_cell(vendor_room)
@@ -288,6 +304,27 @@ func is_walkable(cell: Vector2i) -> bool:
 	if cell.x < 0 or cell.x >= map_width or cell.y < 0 or cell.y >= map_height:
 		return false
 	return tiles[cell.y][cell.x] == FLOOR
+
+
+func can_player_move_to(from_cell: Vector2i, target_cell: Vector2i) -> bool:
+	if not is_walkable(target_cell):
+		return false
+	if (
+		is_impossible_trial
+		or not is_castle_entered
+		or castle_area.size == Vector2i.ZERO
+		or above_ground_castle_area.size == Vector2i.ZERO
+	):
+		return true
+	if (
+		above_ground_castle_area.has_point(from_cell)
+		and above_ground_castle_area.has_point(target_cell)
+	):
+		return true
+	if not above_ground_castle_area.has_point(from_cell):
+		return true
+	castle_boundary_blocked.emit()
+	return false
 
 
 func can_stand_at(world_position: Vector2) -> bool:
@@ -362,6 +399,50 @@ func get_vendor() -> DungeonVendor:
 
 func get_castle_area() -> Rect2i:
 	return castle_area
+
+
+func get_above_ground_castle_area() -> Rect2i:
+	return above_ground_castle_area
+
+
+func get_castle_entry_stairs_cell() -> Vector2i:
+	return castle_entry_stairs_cell
+
+
+func has_entered_castle() -> bool:
+	return is_castle_entered
+
+
+func interact_with_castle_entry(player_cell: Vector2i) -> bool:
+	if is_impossible_trial or castle_entry_stairs_cell == Vector2i.ZERO:
+		return false
+	if player_cell != castle_entry_stairs_cell and player_cell != castle_entry_cell:
+		return false
+
+	var player: DungeonEntity = get_player()
+	if player == null or not is_instance_valid(player):
+		return false
+
+	if is_castle_entered:
+		if player_cell != castle_entry_cell:
+			return false
+		is_castle_entered = false
+		player.current_cell = castle_entry_stairs_cell
+		player.position = cell_to_world(castle_entry_stairs_cell)
+		_refresh_visibility()
+		companion_event.emit("You descend the stairs back into the dungeon.")
+		return true
+
+	is_castle_entered = true
+	player.current_cell = castle_entry_cell
+	player.position = cell_to_world(castle_entry_cell)
+	_refresh_visibility()
+	companion_event.emit("You climb the ancient stairs into the high castle. Return to these stairs to leave.")
+	return true
+
+
+func is_inside_above_ground_castle(cell: Vector2i) -> bool:
+	return above_ground_castle_area.size != Vector2i.ZERO and above_ground_castle_area.has_point(cell)
 
 
 func is_safe_area_cell(cell: Vector2i) -> bool:
@@ -1404,32 +1485,26 @@ func _clear_castle() -> void:
 	healing_shop_cell = Vector2i.ZERO
 
 
-func _create_castle_area(start_room: Rect2i) -> Rect2i:
-	var position: Vector2i = Vector2i.ZERO
-	match start_side:
-		MapSide.LEFT:
-			position = Vector2i(
-				start_room.end.x,
-				clampi(start_room.get_center().y - CASTLE_SIZE.y / 2, 0, map_height - CASTLE_SIZE.y),
-			)
-		MapSide.RIGHT:
-			position = Vector2i(
-				start_room.position.x - CASTLE_SIZE.x,
-				clampi(start_room.get_center().y - CASTLE_SIZE.y / 2, 0, map_height - CASTLE_SIZE.y),
-			)
-		MapSide.TOP:
-			position = Vector2i(
-				clampi(start_room.get_center().x - CASTLE_SIZE.x / 2, 0, map_width - CASTLE_SIZE.x),
-				start_room.end.y,
-			)
-		MapSide.BOTTOM:
-			position = Vector2i(
-				clampi(start_room.get_center().x - CASTLE_SIZE.x / 2, 0, map_width - CASTLE_SIZE.x),
-				start_room.position.y - CASTLE_SIZE.y,
-			)
-	position.x = clampi(position.x, 0, map_width - CASTLE_SIZE.x)
-	position.y = clampi(position.y, 0, map_height - CASTLE_SIZE.y)
+func _create_castle_area(_start_room: Rect2i) -> Rect2i:
+	var position: Vector2i = Vector2i(
+		(map_width - CASTLE_SIZE.x) / 2,
+		(map_height - CASTLE_SIZE.y) / 2,
+	)
 	return Rect2i(position, CASTLE_SIZE)
+
+
+func _carve_castle_area(area: Rect2i) -> void:
+	var interior: Rect2i = area.grow(-1)
+	_carve_room(interior)
+
+
+func _seal_castle_walls(area: Rect2i) -> void:
+	for x: int in range(area.position.x, area.end.x):
+		tiles[area.position.y][x] = WALL
+		tiles[area.end.y - 1][x] = WALL
+	for y: int in range(area.position.y, area.end.y):
+		tiles[y][area.position.x] = WALL
+		tiles[y][area.end.x - 1] = WALL
 
 
 func _spawn_castle() -> void:
@@ -1842,6 +1917,10 @@ func _draw() -> void:
 		_draw_marker(start_cell, Color("#4bc6a7"), false)
 	if is_cell_known(exit_cell):
 		_draw_marker(exit_cell, Color("#d6a85f"), true)
+	if castle_entry_stairs_cell != Vector2i.ZERO and is_cell_known(castle_entry_stairs_cell):
+		_draw_stairs(castle_entry_stairs_cell)
+	if is_castle_entered and castle_entry_cell != Vector2i.ZERO and is_cell_known(castle_entry_cell):
+		_draw_stairs(castle_entry_cell)
 	if vendor_room.size != Vector2i.ZERO and is_cell_known(vendor_cell):
 		var room_rect: Rect2 = Rect2(
 			Vector2(vendor_room.position * TILE_SIZE),
@@ -1849,7 +1928,43 @@ func _draw() -> void:
 		)
 		draw_rect(room_rect.grow(-2.0), Color(0.84, 0.66, 0.37, 0.38), false, 2.0)
 	_draw_castle()
+	_draw_above_ground_castle()
 	_draw_prison_room()
+
+
+func _draw_above_ground_castle() -> void:
+	if above_ground_castle_area.size == Vector2i.ZERO:
+		return
+
+	var castle_rect: Rect2 = Rect2(
+		Vector2(above_ground_castle_area.position * TILE_SIZE),
+		Vector2(above_ground_castle_area.size * TILE_SIZE),
+	)
+	var wall_color: Color = Color("#c59b58")
+	var shadow_color: Color = Color("#594b3b")
+	var inner_color: Color = Color("#e4c16d")
+	draw_rect(castle_rect.grow(-5.0), shadow_color, false, 8.0)
+	draw_rect(castle_rect.grow(-11.0), wall_color.darkened(0.2), false, 3.0)
+
+	var keep_size: Vector2i = Vector2i(18, 12)
+	var keep_position: Vector2i = above_ground_castle_area.get_center() - keep_size / 2
+	var keep_rect: Rect2 = Rect2(
+		Vector2(keep_position * TILE_SIZE),
+		Vector2(keep_size * TILE_SIZE),
+	)
+	draw_rect(keep_rect.grow(-4.0), shadow_color.darkened(0.2), false, 5.0)
+	draw_rect(keep_rect.grow(-10.0), inner_color.darkened(0.45), false, 2.0)
+
+	for tower_offset: Vector2i in [
+		Vector2i(1, 1),
+		Vector2i(above_ground_castle_area.size.x - 2, 1),
+		Vector2i(1, above_ground_castle_area.size.y - 2),
+		Vector2i(above_ground_castle_area.size.x - 2, above_ground_castle_area.size.y - 2),
+	]:
+		var tower_center: Vector2 = cell_to_world(above_ground_castle_area.position + tower_offset)
+		draw_circle(tower_center, 18.0, shadow_color)
+		draw_circle(tower_center, 13.0, wall_color.darkened(0.1))
+		draw_arc(tower_center, 15.0, 0.0, TAU, 20, inner_color, 2.0)
 
 
 func _draw_castle() -> void:
@@ -1935,3 +2050,16 @@ func _draw_marker(cell: Vector2i, color: Color, is_exit: bool) -> void:
 	else:
 		draw_circle(marker_center, 8.0, marker_color.darkened(0.35))
 		draw_arc(marker_center, 8.0, 0.0, TAU, 20, marker_color, 2.0)
+
+
+func _draw_stairs(cell: Vector2i) -> void:
+	var center: Vector2 = cell_to_world(cell)
+	var stair_color: Color = Color("#e4c16d") if is_cell_visible(cell) else Color("#876d43")
+	for stair_index: int in range(3):
+		var y_offset: float = -8.0 + float(stair_index) * 8.0
+		draw_line(
+			center + Vector2(-9.0, y_offset),
+			center + Vector2(9.0, y_offset),
+			stair_color,
+			2.0,
+		)
