@@ -30,6 +30,12 @@ func use_hit() -> bool:
 	return hits_remaining <= 0
 
 
+func duplicate_with_durability() -> WeaponData:
+	var weapon_copy: WeaponData = WeaponData.new(weapon_name, attack_damage)
+	weapon_copy.hits_remaining = hits_remaining
+	return weapon_copy
+
+
 func is_broken() -> bool:
 	return hits_remaining <= 0
 

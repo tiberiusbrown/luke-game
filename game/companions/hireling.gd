@@ -12,6 +12,9 @@ var is_controlled: bool = false
 var companion_name: String = "Hired Fighter"
 var hit_chance: float = HIT_CHANCE
 var inventory: PlayerInventory = PlayerInventory.new()
+var _shared_inventory: PlayerInventory = null
+var _shared_weapon_copies: Dictionary = {}
+var _preserved_weapon_after_shared_break: WeaponData = null
 
 
 func _init() -> void:
@@ -19,6 +22,7 @@ func _init() -> void:
 	health = HeartHealth.new(MAX_HEARTS)
 	speed = SPEED
 	inventory.inventory_changed.connect(_on_inventory_changed)
+	inventory.weapon_broken.connect(_on_local_weapon_broken)
 
 
 func _ready() -> void:
@@ -50,11 +54,13 @@ func set_controlled(controlled: bool) -> void:
 func set_inventory(new_inventory: PlayerInventory) -> void:
 	if new_inventory == null:
 		return
-	if inventory != new_inventory and inventory.inventory_changed.is_connected(_on_inventory_changed):
-		inventory.inventory_changed.disconnect(_on_inventory_changed)
-	inventory = new_inventory
-	if not inventory.inventory_changed.is_connected(_on_inventory_changed):
-		inventory.inventory_changed.connect(_on_inventory_changed)
+	if _shared_inventory != null:
+		_disconnect_shared_inventory(_shared_inventory)
+	_shared_inventory = new_inventory
+	_connect_shared_inventory(_shared_inventory)
+	_shared_weapon_copies.clear()
+	inventory.clear()
+	_sync_shared_weapons()
 	queue_redraw()
 
 
@@ -121,7 +127,11 @@ func _after_move() -> void:
 	if pickup == null:
 		return
 	if pickup.weapon_data != null:
-		inventory.add_weapon(pickup.weapon_data)
+		if _shared_inventory != null:
+			_shared_inventory.add_weapon(pickup.weapon_data)
+		_add_shared_weapon_copy(pickup.weapon_data)
+	elif _shared_inventory != null:
+		_shared_inventory.add_item(pickup.item_name)
 	else:
 		inventory.add_item(pickup.item_name)
 
@@ -199,6 +209,99 @@ func _get_manhattan_distance(first_cell: Vector2i, second_cell: Vector2i) -> int
 
 func _on_inventory_changed() -> void:
 	queue_redraw()
+
+
+func _connect_shared_inventory(shared_inventory: PlayerInventory) -> void:
+	if not shared_inventory.inventory_changed.is_connected(_on_shared_inventory_changed):
+		shared_inventory.inventory_changed.connect(_on_shared_inventory_changed)
+	if not shared_inventory.weapon_wielded.is_connected(_on_shared_weapon_wielded):
+		shared_inventory.weapon_wielded.connect(_on_shared_weapon_wielded)
+	if not shared_inventory.weapon_unwielded.is_connected(_on_shared_weapon_unwielded):
+		shared_inventory.weapon_unwielded.connect(_on_shared_weapon_unwielded)
+	if not shared_inventory.weapon_broken.is_connected(_on_shared_weapon_broken):
+		shared_inventory.weapon_broken.connect(_on_shared_weapon_broken)
+
+
+func _disconnect_shared_inventory(shared_inventory: PlayerInventory) -> void:
+	if shared_inventory.inventory_changed.is_connected(_on_shared_inventory_changed):
+		shared_inventory.inventory_changed.disconnect(_on_shared_inventory_changed)
+	if shared_inventory.weapon_wielded.is_connected(_on_shared_weapon_wielded):
+		shared_inventory.weapon_wielded.disconnect(_on_shared_weapon_wielded)
+	if shared_inventory.weapon_unwielded.is_connected(_on_shared_weapon_unwielded):
+		shared_inventory.weapon_unwielded.disconnect(_on_shared_weapon_unwielded)
+	if shared_inventory.weapon_broken.is_connected(_on_shared_weapon_broken):
+		shared_inventory.weapon_broken.disconnect(_on_shared_weapon_broken)
+
+
+func _on_shared_inventory_changed() -> void:
+	_sync_shared_weapons()
+	queue_redraw()
+
+
+func _on_shared_weapon_wielded(shared_weapon: WeaponData) -> void:
+	_sync_shared_weapons()
+
+
+func _on_shared_weapon_unwielded(shared_weapon: WeaponData) -> void:
+	if shared_weapon == null or shared_weapon.is_broken():
+		return
+	_preserved_weapon_after_shared_break = null
+	var local_weapon: WeaponData = _get_local_weapon(shared_weapon)
+	if local_weapon != null and inventory.is_weapon_wielded(local_weapon):
+		inventory.unwield_weapon(local_weapon)
+
+
+func _on_shared_weapon_broken(shared_weapon: WeaponData) -> void:
+	var local_weapon: WeaponData = _get_local_weapon(shared_weapon)
+	if local_weapon != null and inventory.is_weapon_wielded(local_weapon):
+		_preserved_weapon_after_shared_break = local_weapon
+
+
+func _on_local_weapon_broken(broken_weapon: WeaponData) -> void:
+	for shared_weapon: WeaponData in _shared_weapon_copies:
+		if _shared_weapon_copies[shared_weapon] == broken_weapon:
+			_shared_weapon_copies.erase(shared_weapon)
+			return
+
+
+func _sync_shared_weapons() -> void:
+	if _shared_inventory == null:
+		return
+
+	for shared_weapon: WeaponData in _shared_inventory.get_weapons():
+		if not _shared_weapon_copies.has(shared_weapon):
+			_add_shared_weapon_copy(shared_weapon)
+
+	var shared_equipped_weapon: WeaponData = _shared_inventory.get_equipped_weapon()
+	if shared_equipped_weapon != null:
+		var local_weapon: WeaponData = _get_local_weapon(shared_equipped_weapon)
+		if local_weapon != null and not inventory.is_weapon_wielded(local_weapon):
+			inventory.wield_weapon(local_weapon)
+		_preserved_weapon_after_shared_break = null
+		return
+
+	if (
+		_preserved_weapon_after_shared_break == null
+		and inventory.get_equipped_weapon() != null
+	):
+		inventory.unwield_weapon(inventory.get_equipped_weapon())
+
+
+func _add_shared_weapon_copy(shared_weapon: WeaponData) -> void:
+	if shared_weapon == null or _shared_weapon_copies.has(shared_weapon):
+		return
+	var local_weapon: WeaponData = shared_weapon.duplicate_with_durability()
+	_shared_weapon_copies[shared_weapon] = local_weapon
+	inventory.add_weapon(local_weapon)
+
+
+func _get_local_weapon(shared_weapon: WeaponData) -> WeaponData:
+	if shared_weapon == null:
+		return null
+	var weapon_value: Variant = _shared_weapon_copies.get(shared_weapon, null)
+	if weapon_value is WeaponData:
+		return weapon_value as WeaponData
+	return null
 
 
 func _draw() -> void:

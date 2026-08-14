@@ -55,6 +55,26 @@ func test_hired_hireling_attacks_enemies_for_three_hearts() -> void:
 	assert_eq(enemy.health.current_hearts, 7)
 
 
+func test_player_and_hired_hireling_have_separate_weapon_durability() -> void:
+	var weapon: WeaponData = WeaponData.new("Silver Sword", 2)
+	player.inventory.add_weapon(weapon)
+	assert_true(player.inventory.wield_weapon(weapon))
+	_hire_hireling()
+
+	var hireling_weapon: WeaponData = hireling.get_held_weapon()
+	assert_not_null(hireling_weapon)
+	assert_ne(hireling_weapon, weapon)
+	assert_eq(hireling_weapon.hits_remaining, weapon.hits_remaining)
+
+	player.inventory.consume_equipped_weapon_hit()
+	assert_eq(weapon.hits_remaining, 9)
+	assert_eq(hireling_weapon.hits_remaining, 10)
+
+	hireling.inventory.consume_equipped_weapon_hit()
+	assert_eq(weapon.hits_remaining, 9)
+	assert_eq(hireling_weapon.hits_remaining, 9)
+
+
 func test_hired_hireling_attacks_automatically_after_the_player_moves() -> void:
 	_hire_hireling()
 	var enemy: ZombieEnemy = ZombieEnemy.new()
